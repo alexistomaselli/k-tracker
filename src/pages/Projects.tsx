@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';

@@ -154,7 +154,7 @@ export default function Dashboard() {
                         {isOverdue ? (
                           <Badge variant="overdue">Vencida</Badge>
                         ) : daysLeft <= 2 ? (
-                          <Badge variant="warning">Urgente</Badge>
+                          <Badge variant="active">Urgente</Badge>
                         ) : null}
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
