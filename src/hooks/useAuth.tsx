@@ -6,6 +6,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
+  const STRICT = (import.meta.env.VITE_REQUIRE_AUTH as string | undefined) === 'true'
 
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) {
@@ -27,7 +28,8 @@ export function useAuth() {
     }
   }, [])
 
-  return { loading, session, user, isAuthenticated: !!session || !SUPABASE_CONFIGURED }
+  const isAuthenticated = STRICT ? !!session : (!!session || !SUPABASE_CONFIGURED)
+  return { loading, session, user, isAuthenticated }
 }
 
 export function RequireAuth({ children }: { children: any }) {
