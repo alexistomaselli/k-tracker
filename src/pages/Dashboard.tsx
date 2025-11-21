@@ -3,13 +3,13 @@ import { FolderKanban, FileText, AlertCircle, Plus } from 'lucide-react';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { useMockProjects, useMockMinutes, useMockTasks } from '../hooks/useMockData';
+import { useProjects, useMinutes, useTasks } from '../hooks/useData';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
 
 export default function Dashboard() {
-  const { projects } = useMockProjects();
-  const { minutes } = useMockMinutes();
-  const { tasks } = useMockTasks();
+  const { projects } = useProjects();
+  const { minutes } = useMinutes();
+  const { tasks } = useTasks();
 
   const activeProjects = projects.filter((p) => p.status === 'active').length;
   const recentMinutes = minutes.slice(-5).reverse();
