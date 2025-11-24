@@ -1,19 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
-import {
-  Project,
-  Minute,
-  Task,
-  Participant,
-  Area,
-} from '../data/mockData'
-import {
-  useMockProjects,
-  useMockMinutes,
-  useMockTasks,
-  useMockParticipants,
-  useMockAreas,
-} from './useMockData'
+import { Project, Minute, Task, Participant, Area } from '../data/mockData'
+import { useMockProjects, useMockMinutes, useMockTasks, useMockParticipants, useMockAreas } from './useMockData'
 
 export function useProjects() {
   const mock = useMockProjects()
@@ -124,4 +112,5 @@ export function useAreas() {
   const getAreaById = (id: string) => areas.find((a) => a.id === id)
 
   return { areas, getAreaById }
+}
 }
