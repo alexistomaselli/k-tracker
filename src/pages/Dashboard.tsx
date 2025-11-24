@@ -68,6 +68,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-gray-600">Tareas Pendientes</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{pendingTasks.length}</p>
+                <p className="text-sm text-gray-500">de {tasks.length} totales</p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-yellow-600" />

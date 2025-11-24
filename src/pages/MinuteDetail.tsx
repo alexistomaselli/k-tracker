@@ -25,6 +25,7 @@ export default function MinuteDetail() {
   const minute = getMinuteById(minuteId!);
   const project = minute ? getProjectById(minute.project_id) : null;
   const tasks = getTasksByMinute(minuteId!);
+  const pendingCount = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
 
   if (!minute) {
     return (
@@ -115,7 +116,7 @@ export default function MinuteDetail() {
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            Tareas ({tasks.length})
+            Tareas ({pendingCount}/{tasks.length})
           </button>
         </nav>
       </div>
