@@ -6,12 +6,12 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import SearchInput from '../components/ui/SearchInput';
 import Select from '../components/ui/Select';
-import { useMockMinutes, useMockProjects, useMockTasks } from '../hooks/useMockData';
+import { useMinutes, useProjects, useTasks } from '../hooks/useData';
 
 export default function Minutes() {
-  const { minutes, loading } = useMockMinutes();
-  const { getProjectById } = useMockProjects();
-  const { getTasksByMinute } = useMockTasks();
+  const { minutes, loading } = useMinutes();
+  const { getProjectById } = useProjects();
+  const { getTasksByMinute } = useTasks();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
