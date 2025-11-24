@@ -89,6 +89,7 @@ export default function Minutes() {
                   {filteredMinutes.map((minute) => {
                     const project = getProjectById(minute.project_id);
                     const tasks = getTasksByMinute(minute.id);
+                    const pendingCount = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
                     return (
                       <tr key={minute.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium">Acta #{minute.minute_number}</td>
@@ -100,7 +101,10 @@ export default function Minutes() {
                             {minute.status === 'final' ? 'Final' : 'Borrador'}
                           </Badge>
                         </td>
-                        <td className="py-3 px-4">{tasks.length}</td>
+                        <td className="py-3 px-4">
+                          <span className="font-medium">{pendingCount}</span>
+                          <span className="text-gray-500">/{tasks.length}</span>
+                        </td>
                         <td className="py-3 px-4">
                           <Link to={`/minutes/${minute.id}`}>
                             <Button variant="outline" size="sm">
