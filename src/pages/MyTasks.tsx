@@ -9,24 +9,29 @@ import Select from '../components/ui/Select';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
 import { useTasks, useProjects, useAreas, useTaskActions } from '../hooks/useData';
 import SearchInput from '../components/ui/SearchInput';
+import { useAuth } from '../hooks/useAuth';
 
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due_date');
 
+  const { user } = useAuth();
   const { getTasksByAssignee } = useTasks();
   const { getProjectById } = useProjects();
   const { getAreaById } = useAreas();
   const { setTaskStatus, addTaskComment } = useTaskActions();
   const [search, setSearch] = useState('');
 
-  const myTasks = getTasksByAssignee('pa1');
+  const currentAssigneeId = user?.id ?? 'pa1';
+  const myTasks = getTasksByAssignee(currentAssigneeId);
 
-  const filteredTasks = myTasks.filter((task) => {
-    if (statusFilter === 'all') return true;
-    if (statusFilter === 'overdue') return isTaskOverdue(task);
-    return task.status === statusFilter;
-  }).filter((task) => task.description.toLowerCase().includes(search.toLowerCase()));
+  const filteredTasks = myTasks
+    .filter((task) => {
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'overdue') return isTaskOverdue(task);
+      return task.status === statusFilter;
+    })
+    .filter((task) => task.description.toLowerCase().includes(search.toLowerCase()));
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (sortBy === 'due_date') {
@@ -165,24 +170,36 @@ export default function MyTasks() {
 
                       <div className="flex sm:flex-col gap-2">
                         {task.status === 'pending' && (
-                          <Button variant="secondary" size="sm" onClick={async () => {
-                            await setTaskStatus(task.id, 'in_progress');
-                          }}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={async () => {
+                              await setTaskStatus(task.id, 'in_progress');
+                            }}
+                          >
                             <CheckCircle className="w-4 h-4 mr-2" />
                             En Progreso
                           </Button>
                         )}
                         {task.status === 'in_progress' && (
-                          <Button variant="primary" size="sm" onClick={async () => {
-                            await setTaskStatus(task.id, 'completed');
-                          }}>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={async () => {
+                              await setTaskStatus(task.id, 'completed');
+                            }}
+                          >
                             <CheckCircle className="w-4 h-4 mr-2" />
                             Completar
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={async () => {
-                          await addTaskComment(task.id, 'Comentario rápido');
-                        }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            await addTaskComment(task.id, 'Comentario rápido');
+                          }}
+                        >
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Comentar
                         </Button>
