@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import { Project, Minute, Task, Participant, Area } from '../data/mockData'
-import { useMockProjects, useMockMinutes, useMockTasks, useMockParticipants, useMockAreas } from './useMockData'
+import { useMockProjects, useMockMinutes, useMockTasks, useMockTaskFeed, useMockParticipants, useMockAreas } from './useMockData'
 
 export function useProjects() {
   const mock = useMockProjects()
@@ -73,7 +73,7 @@ export function useTasks() {
   return { tasks, loading, getTaskById, getTasksByProject, getTasksByMinute, getTasksByAssignee }
 }
 
-<<<<<<< HEAD
+ 
 export function useAgenda(minuteId: string) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -110,6 +110,63 @@ export function useAttendance(minuteId: string) {
   return { attendance: rows, loading }
 }
 
+export function useTaskFeed(taskId: string) {
+  const mock = useMockTaskFeed(taskId)
+  const [feed, setFeed] = useState<any[]>(mock.feed)
+  useEffect(() => {
+    async function load() {
+      if (!taskId) return
+      if (!SUPABASE_CONFIGURED) return
+      const supabase = getSupabase()
+      const { data: comments } = await supabase!.from('task_comments').select('*').eq('task_id', taskId)
+      const { data: activity } = await supabase!.from('task_activity').select('*').eq('task_id', taskId)
+      const mappedComments = (comments ?? []).map((c: any) => ({
+        id: c.id,
+        task_id: c.task_id,
+        user_id: c.user_id,
+        content: c.content,
+        attachments: c.attachments ?? [],
+        edited: !!c.edited,
+        created_at: c.created_at,
+      }))
+      const mappedActivity = (activity ?? []).map((a: any) => ({
+        id: a.id,
+        task_id: a.task_id,
+        user_id: a.user_id,
+        type: a.type,
+        payload: a.payload ?? {},
+        created_at: a.created_at,
+      }))
+      const combined = [...mappedComments, ...mappedActivity].sort((x: any, y: any) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime())
+      setFeed(combined)
+    }
+    load()
+  }, [taskId])
+  return { feed }
+}
+
+export function useTaskActions() {
+  async function setTaskStatus(taskId: string, status: string) {
+    if (!SUPABASE_CONFIGURED) return
+    const supabase = getSupabase()
+    const rpc = await supabase!.rpc('set_task_status', { p_task_id: taskId, p_status: status })
+    if (rpc.error) await supabase!.from('tasks').update({ status }).eq('id', taskId)
+  }
+  async function reassignTask(taskId: string, assigneeId: string) {
+    if (!SUPABASE_CONFIGURED) return
+    const supabase = getSupabase()
+    const rpc = await supabase!.rpc('reassign_task', { p_task_id: taskId, p_assignee_id: assigneeId })
+    if (rpc.error) await supabase!.from('tasks').update({ assignee_id: assigneeId }).eq('id', taskId)
+  }
+  async function addTaskComment(taskId: string, content: string, attachmentUrl?: string) {
+    if (!SUPABASE_CONFIGURED) return
+    const supabase = getSupabase()
+    const attachments = attachmentUrl ? [{ type: 'link', url: attachmentUrl, name: attachmentUrl }] : []
+    const rpc = await supabase!.rpc('create_task_comment', { p_task_id: taskId, p_content: content, p_attachments: attachments })
+    if (rpc.error) await supabase!.from('task_comments').insert({ task_id: taskId, content, attachments })
+  }
+  return { setTaskStatus, reassignTask, addTaskComment }
+}
 export function useParticipants() {
   const mock = useMockParticipants()
   const [participants, setParticipants] = useState<Participant[]>(mock.participants)

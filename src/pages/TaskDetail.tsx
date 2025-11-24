@@ -8,16 +8,9 @@ import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
-import {
-  useMockTasks,
-  useMockProjects,
-  useMockMinutes,
-  useMockParticipants,
-  useMockAreas,
-  useMockTaskFeed,
-  calculateDaysLeft,
-  isTaskOverdue,
-} from '../hooks/useMockData';
+import { calculateDaysLeft, isTaskOverdue } from '../hooks/useMockData';
+import { useTasks, useMinutes, useProjects, useTaskFeed, useTaskActions } from '../hooks/useData';
+import { useMockParticipants, useMockAreas } from '../hooks/useMockData';
 import { Activity, Comment } from '../data/mockData';
 
 export default function TaskDetail() {
@@ -25,12 +18,13 @@ export default function TaskDetail() {
   const [newComment, setNewComment] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
 
-  const { getTaskById } = useMockTasks();
-  const { getProjectById } = useMockProjects();
-  const { getMinuteById } = useMockMinutes();
+  const { getTaskById } = useTasks();
+  const { getProjectById } = useProjects();
+  const { getMinuteById } = useMinutes();
   const { getParticipantById, participants } = useMockParticipants();
   const { getAreaById } = useMockAreas();
-  const { feed } = useMockTaskFeed(taskId!);
+  const { feed } = useTaskFeed(taskId!);
+  const { setTaskStatus, reassignTask, addTaskComment } = useTaskActions();
 
   const task = getTaskById(taskId!);
   const project = task ? getProjectById(task.project_id) : null;
@@ -48,8 +42,11 @@ export default function TaskDetail() {
 
   const daysLeft = calculateDaysLeft(task.due_date);
   const overdue = isTaskOverdue(task);
+  const [statusSel, setStatusSel] = useState<'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent'>(task.status as any);
+  const [assigneeSel, setAssigneeSel] = useState(task.assignee_id);
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
+    await addTaskComment(task.id, newComment, attachmentUrl || undefined);
     setNewComment('');
     setAttachmentUrl('');
   };
@@ -171,7 +168,7 @@ export default function TaskDetail() {
                 <div className="flex-1">
                   <h1 className="text-2xl font-bold text-gray-900 mb-3">{task.description}</h1>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Badge variant={task.status}>{task.status}</Badge>
+                    <Badge variant={statusSel}>{statusSel}</Badge>
                     <Chip priority={task.priority}>{task.priority}</Chip>
                     {overdue && <Badge variant="overdue">Vencida</Badge>}
                   </div>
@@ -292,8 +289,12 @@ export default function TaskDetail() {
                     { value: 'completed', label: 'Completada' },
                     { value: 'canceled', label: 'Cancelada' },
                   ]}
-                  value={task.status}
-                  onChange={() => {}}
+                  value={statusSel}
+                  onChange={async (e) => {
+                    const val = (e.target as HTMLSelectElement).value as any;
+                    setStatusSel(val);
+                    await setTaskStatus(task.id, val);
+                  }}
                 />
                 <Select
                   label="Reasignar a"
@@ -301,8 +302,12 @@ export default function TaskDetail() {
                     value: p.id,
                     label: `${p.first_name} ${p.last_name}`,
                   }))}
-                  value={task.assignee_id}
-                  onChange={() => {}}
+                  value={assigneeSel}
+                  onChange={async (e) => {
+                    const val = (e.target as HTMLSelectElement).value;
+                    setAssigneeSel(val);
+                    await reassignTask(task.id, val);
+                  }}
                 />
               </div>
             </CardContent>
