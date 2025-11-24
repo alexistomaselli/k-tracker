@@ -6,21 +6,19 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Select from '../components/ui/Select';
-import {
-  useMockTasks,
-  useMockProjects,
-  useMockAreas,
-  isTaskOverdue,
-  calculateDaysLeft,
-} from '../hooks/useMockData';
+import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
+import { useTasks, useProjects, useAreas, useTaskActions } from '../hooks/useData';
+import SearchInput from '../components/ui/SearchInput';
 
 export default function MyTasks() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due_date');
 
-  const { getTasksByAssignee } = useMockTasks();
-  const { getProjectById } = useMockProjects();
-  const { getAreaById } = useMockAreas();
+  const { getTasksByAssignee } = useTasks();
+  const { getProjectById } = useProjects();
+  const { getAreaById } = useAreas();
+  const { setTaskStatus, addTaskComment } = useTaskActions();
+  const [search, setSearch] = useState('');
 
   const myTasks = getTasksByAssignee('pa1');
 
@@ -28,7 +26,7 @@ export default function MyTasks() {
     if (statusFilter === 'all') return true;
     if (statusFilter === 'overdue') return isTaskOverdue(task);
     return task.status === statusFilter;
-  });
+  }).filter((task) => task.description.toLowerCase().includes(search.toLowerCase()));
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     if (sortBy === 'due_date') {
@@ -80,7 +78,14 @@ export default function MyTasks() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch gap-4 mb-6">
+            <div className="w-full sm:flex-1 sm:min-w-[420px]">
+              <SearchInput
+                placeholder="Buscar tareas..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             <Select
               options={[
                 { value: 'all', label: 'Todos los Estados' },
@@ -160,18 +165,24 @@ export default function MyTasks() {
 
                       <div className="flex sm:flex-col gap-2">
                         {task.status === 'pending' && (
-                          <Button variant="secondary" size="sm">
+                          <Button variant="secondary" size="sm" onClick={async () => {
+                            await setTaskStatus(task.id, 'in_progress');
+                          }}>
                             <CheckCircle className="w-4 h-4 mr-2" />
                             En Progreso
                           </Button>
                         )}
                         {task.status === 'in_progress' && (
-                          <Button variant="primary" size="sm">
+                          <Button variant="primary" size="sm" onClick={async () => {
+                            await setTaskStatus(task.id, 'completed');
+                          }}>
                             <CheckCircle className="w-4 h-4 mr-2" />
                             Completar
                           </Button>
                         )}
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={async () => {
+                          await addTaskComment(task.id, 'Comentario rápido');
+                        }}>
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Comentar
                         </Button>
