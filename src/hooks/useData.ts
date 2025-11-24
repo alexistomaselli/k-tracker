@@ -73,6 +73,43 @@ export function useTasks() {
   return { tasks, loading, getTaskById, getTasksByProject, getTasksByMinute, getTasksByAssignee }
 }
 
+<<<<<<< HEAD
+export function useAgenda(minuteId: string) {
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    async function load() {
+      if (!minuteId) return
+      if (!SUPABASE_CONFIGURED) return
+      setLoading(true)
+      const supabase = getSupabase()
+      const { data } = await supabase!.from('minute_agenda_items').select('*').eq('minute_id', minuteId).order('order', { ascending: true })
+      setItems(data ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [minuteId])
+  return { agendaItems: items, loading }
+}
+
+export function useAttendance(minuteId: string) {
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    async function load() {
+      if (!minuteId) return
+      if (!SUPABASE_CONFIGURED) return
+      setLoading(true)
+      const supabase = getSupabase()
+      const { data } = await supabase!.from('minute_attendance').select('*').eq('minute_id', minuteId)
+      setRows(data ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [minuteId])
+  return { attendance: rows, loading }
+}
+
 export function useParticipants() {
   const mock = useMockParticipants()
   const [participants, setParticipants] = useState<Participant[]>(mock.participants)
@@ -112,5 +149,4 @@ export function useAreas() {
   const getAreaById = (id: string) => areas.find((a) => a.id === id)
 
   return { areas, getAreaById }
-}
 }

@@ -6,31 +6,26 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
-import {
-  useMockMinutes,
-  useMockProjects,
-  useMockAgenda,
-  useMockAttendance,
-  useMockTasks,
-  useMockParticipants,
-  useMockAreas,
-} from '../hooks/useMockData';
+import { useMinutes, useProjects, useTasks } from '../hooks/useData';
+import { useAgenda, useAttendance } from '../hooks/useData';
+import { useMockParticipants, useMockAreas } from '../hooks/useMockData';
 
 export default function MinuteDetail() {
   const { minuteId } = useParams<{ minuteId: string }>();
   const [activeTab, setActiveTab] = useState<'content' | 'tasks'>('content');
 
-  const { getMinuteById } = useMockMinutes();
-  const { getProjectById } = useMockProjects();
-  const { agendaItems } = useMockAgenda(minuteId!);
-  const { attendance } = useMockAttendance(minuteId!);
-  const { getTasksByMinute } = useMockTasks();
+  const { getMinuteById } = useMinutes();
+  const { getProjectById } = useProjects();
+  const { agendaItems } = useAgenda(minuteId!);
+  const { attendance } = useAttendance(minuteId!);
+  const { getTasksByMinute } = useTasks();
   const { getParticipantById } = useMockParticipants();
   const { getAreaById } = useMockAreas();
 
   const minute = getMinuteById(minuteId!);
   const project = minute ? getProjectById(minute.project_id) : null;
   const tasks = getTasksByMinute(minuteId!);
+  const pendingCount = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
 
   if (!minute) {
     return (
@@ -121,7 +116,7 @@ export default function MinuteDetail() {
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            Tareas ({tasks.length})
+            Tareas ({pendingCount}/{tasks.length})
           </button>
         </nav>
       </div>
@@ -223,9 +218,14 @@ export default function MinuteDetail() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900">Tareas del Acta</h2>
-              <Button variant="outline" size="sm">
-                Arrastrar Tareas Anteriores
-              </Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              const supabase = (await import('../lib/supabase')).getSupabase()
+              if (supabase) {
+                await supabase.rpc('copy_tasks_to_new_minute', { new_minute_id: minuteId })
+              }
+            }}>
+              Arrastrar Tareas Anteriores
+            </Button>
             </div>
           </CardHeader>
           <CardContent>
