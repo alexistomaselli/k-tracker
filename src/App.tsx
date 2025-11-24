@@ -11,6 +11,7 @@ import MinuteDetail from './pages/MinuteDetail';
 import TaskDetail from './pages/TaskDetail';
 import MyTasks from './pages/MyTasks';
 import AppLayout from './components/layout/AppLayout';
+import { RequireAuth } from './hooks/useAuth';
 
 function App() {
   return (
@@ -21,7 +22,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/login-responsable" element={<LoginResponsable />} />
 
-        <Route element={<AppLayout />}>
+        <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
