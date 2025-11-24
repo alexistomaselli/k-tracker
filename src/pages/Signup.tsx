@@ -5,6 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
+import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -16,10 +17,28 @@ export default function Signup() {
     password: '',
     confirm_password: '',
   });
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (!SUPABASE_CONFIGURED) {
+      navigate('/dashboard');
+      return;
+    }
+    setError('');
+    if (formData.password !== formData.confirm_password) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+    const supabase = getSupabase()!;
+    supabase.auth.signUp({ email: formData.email, password: formData.password })
+      .then(({ error }) => {
+        if (error) {
+          setError('No se pudo crear la cuenta');
+          return;
+        }
+        navigate('/dashboard');
+      });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +126,9 @@ export default function Signup() {
                 Crear Cuenta
               </Button>
             </form>
+            {error && (
+              <div className="mt-4 text-center text-sm text-red-600">{error}</div>
+            )}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 ¿Ya tienes cuenta?{' '}

@@ -6,26 +6,19 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
-import {
-  useMockProjects,
-  useMockTasks,
-  useMockMinutes,
-  useMockParticipants,
-  useMockAreas,
-  isTaskOverdue,
-  calculateDaysLeft,
-} from '../hooks/useMockData';
+import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
+import { useProjects, useTasks, useMinutes, useParticipants, useAreas } from '../hooks/useData';
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const [activeTab, setActiveTab] = useState<'tasks' | 'minutes' | 'responsables'>('tasks');
   const [taskView, setTaskView] = useState<'kanban' | 'list'>('kanban');
 
-  const { getProjectById } = useMockProjects();
-  const { getTasksByProject } = useMockTasks();
-  const { getMinutesByProject } = useMockMinutes();
-  const { participants, getParticipantById } = useMockParticipants();
-  const { getAreaById } = useMockAreas();
+  const { getProjectById } = useProjects();
+  const { getTasksByProject } = useTasks();
+  const { getMinutesByProject } = useMinutes();
+  const { participants, getParticipantById } = useParticipants();
+  const { getAreaById } = useAreas();
 
   const project = getProjectById(projectId!);
   const tasks = getTasksByProject(projectId!);
