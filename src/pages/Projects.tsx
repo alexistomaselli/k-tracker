@@ -6,10 +6,10 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import SearchInput from '../components/ui/SearchInput';
 import Select from '../components/ui/Select';
-import { useMockProjects } from '../hooks/useMockData';
+import { useProjects } from '../hooks/useData';
 
 export default function Projects() {
-  const { projects, loading } = useMockProjects();
+  const { projects, loading } = useProjects();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
