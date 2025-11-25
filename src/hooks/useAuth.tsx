@@ -7,6 +7,7 @@ export function useAuth() {
   const [session, setSession] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const STRICT = (import.meta.env.VITE_REQUIRE_AUTH as string | undefined) === 'true'
+  const VERIFIED_REQUIRED = (import.meta.env.VITE_REQUIRE_EMAIL_VERIFIED as string | undefined) === 'true'
 
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) {
@@ -29,12 +30,14 @@ export function useAuth() {
   }, [])
 
   const isAuthenticated = STRICT ? !!session : (!!session || !SUPABASE_CONFIGURED)
-  return { loading, session, user, isAuthenticated }
+  const verified = !!user?.email_confirmed_at
+  return { loading, session, user, isAuthenticated, verified, requireEmailVerified: VERIFIED_REQUIRED }
 }
 
 export function RequireAuth({ children }: { children: any }) {
-  const { loading, isAuthenticated } = useAuth()
+  const { loading, isAuthenticated, verified, requireEmailVerified } = useAuth()
   if (loading) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (requireEmailVerified && !verified) return <Navigate to="/login?verifyEmail=true" replace />
   return children
 }

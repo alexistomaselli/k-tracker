@@ -47,8 +47,8 @@ export default function Minutes() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row items-stretch gap-4 mb-6">
+            <div className="w-full sm:flex-1 sm:min-w-[420px]">
               <SearchInput
                 placeholder="Buscar actas..."
                 value={search}

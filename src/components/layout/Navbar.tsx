@@ -5,9 +5,10 @@ import Button from '../ui/Button';
 interface NavbarProps {
   isAuthenticated?: boolean;
   onMenuClick?: () => void;
+  onLogout?: () => void;
 }
 
-export default function Navbar({ isAuthenticated = false, onMenuClick }: NavbarProps) {
+export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout }: NavbarProps) {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" role="navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,6 +55,7 @@ export default function Navbar({ isAuthenticated = false, onMenuClick }: NavbarP
                   <span className="hidden sm:inline text-sm text-gray-700">Usuario</span>
                 </button>
                 <button
+                  onClick={onLogout}
                   className="flex items-center space-x-2 text-red-600 hover:bg-red-50 px-3 py-2 rounded-md"
                   aria-label="Cerrar sesión"
                 >

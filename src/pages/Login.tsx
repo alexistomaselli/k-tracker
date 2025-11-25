@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
@@ -9,11 +9,13 @@ import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [error, setError] = useState('');
+  const showVerifyNotice = new URLSearchParams(location.search).has('verifyEmail');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +25,12 @@ export default function Login() {
     }
     setError('');
     const supabase = getSupabase()!;
-    supabase.auth.signInWithPassword({ email: formData.email, password: formData.password })
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+    supabase.auth.signInWithPassword({ email, password })
       .then(({ error }) => {
         if (error) {
-          setError('Credenciales inválidas');
+          setError(error.message || 'Credenciales inválidas');
           return;
         }
         navigate('/dashboard');
@@ -57,6 +61,9 @@ export default function Login() {
             <p className="text-center text-gray-600 text-sm mt-2">
               Accede a tu cuenta corporativa
             </p>
+            {showVerifyNotice && (
+              <p className="text-center text-blue-600 text-sm mt-2">Verifica tu email para acceder</p>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -80,7 +87,7 @@ export default function Login() {
               />
               <div className="text-right">
                 <Link
-                  to="/login"
+                  to="/forgot-password"
                   className="text-sm text-[#0A4D8C] hover:underline"
                 >
                   ¿Olvidaste tu contraseña?

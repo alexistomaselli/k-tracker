@@ -31,11 +31,38 @@ export default function Signup() {
       return;
     }
     const supabase = getSupabase()!;
-    supabase.auth.signUp({ email: formData.email, password: formData.password })
-      .then(({ error }) => {
+    supabase.auth.signUp({ email: formData.email.trim(), password: formData.password.trim() })
+      .then(async ({ data, error }) => {
         if (error) {
-          setError('No se pudo crear la cuenta');
+          setError(error.message || 'No se pudo crear la cuenta');
           return;
+        }
+        try {
+          const email = formData.email.trim();
+          const name = formData.company_name.trim();
+          const tax_id = formData.tax_id.trim();
+          const phone = formData.phone.trim();
+          const { data: companyRes, error: companyErr } = await supabase
+            .from('company')
+            .insert({ name, tax_id, phone })
+            .select('id')
+            .single();
+          const company_id = companyRes?.id;
+          const { data: sessionRes } = await supabase.auth.getUser();
+          const user_id = sessionRes.user?.id || data.user?.id || null;
+          if (company_id && user_id) {
+            const names = email.split('@')[0];
+            const first = names || 'Admin';
+            const last = 'Company';
+            await supabase
+              .from('participants')
+              .insert({ company_id, user_id, first_name: first, last_name: last, email });
+          }
+          if (companyErr) {
+            console.warn('Company creation error:', companyErr.message);
+          }
+        } catch (e: any) {
+          console.warn('Post-signup linking failed:', e?.message || e);
         }
         navigate('/dashboard');
       });
