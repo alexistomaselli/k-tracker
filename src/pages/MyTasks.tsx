@@ -7,7 +7,7 @@ import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Select from '../components/ui/Select';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
-import { useTasks, useProjects, useAreas, useTaskActions } from '../hooks/useData';
+import { useTasks, useProjects, useAreas, useTaskActions, useParticipants } from '../hooks/useData';
 import SearchInput from '../components/ui/SearchInput';
 import { useAuth } from '../hooks/useAuth';
 
@@ -16,14 +16,15 @@ export default function MyTasks() {
   const [sortBy, setSortBy] = useState('due_date');
 
   const { user } = useAuth();
+  const { participants } = useParticipants();
   const { getTasksByAssignee } = useTasks();
   const { getProjectById } = useProjects();
   const { getAreaById } = useAreas();
   const { setTaskStatus, addTaskComment } = useTaskActions();
   const [search, setSearch] = useState('');
 
-  const currentAssigneeId = user?.id ?? 'pa1';
-  const myTasks = getTasksByAssignee(currentAssigneeId);
+  const myParticipantId = participants.find((p) => p.user_id === user?.id)?.id ?? 'pa1';
+  const myTasks = getTasksByAssignee(myParticipantId);
 
   const filteredTasks = myTasks
     .filter((task) => {
