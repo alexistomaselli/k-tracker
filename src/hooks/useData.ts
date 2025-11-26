@@ -129,7 +129,7 @@ export function useTasks() {
   return { tasks, loading, error, getTaskById, getTasksByProject, getTasksByMinute, getTasksByAssignee }
 }
 
- 
+
 export function useAgenda(minuteId: string) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -271,4 +271,30 @@ export function useAreas() {
   const getAreaById = (id: string) => areas.find((a) => a.id === id)
 
   return { areas, error, getAreaById }
+}
+
+export function useMinuteActions() {
+  async function createMinute(
+    projectId: string,
+    meetingDate: string,
+    location?: string,
+    startTime?: string,
+    endTime?: string,
+    notes?: string
+  ) {
+    if (!SUPABASE_CONFIGURED) return null
+    const supabase = getSupabase()
+    const { data, error } = await supabase!.rpc('create_minute_with_number', {
+      p_project_id: projectId,
+      p_meeting_date: meetingDate,
+      p_location: location,
+      p_start_time: startTime,
+      p_end_time: endTime,
+      p_notes: notes
+    })
+    if (error) throw error
+    return data?.[0]
+  }
+
+  return { createMinute }
 }
