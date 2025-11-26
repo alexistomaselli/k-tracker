@@ -273,6 +273,7 @@ export function useAreas() {
   return { areas, error, getAreaById }
 }
 
+
 export function useMinuteActions() {
   async function createMinute(
     projectId: string,
@@ -296,5 +297,26 @@ export function useMinuteActions() {
     return data?.[0]
   }
 
-  return { createMinute }
+  async function countPendingTasks(projectId: string) {
+    if (!SUPABASE_CONFIGURED) return 0
+    const supabase = getSupabase()
+    const { data, error } = await supabase!.rpc('count_pending_tasks_for_project', {
+      p_project_id: projectId
+    })
+    if (error) throw error
+    return data || 0
+  }
+
+  async function copyTasksToMinute(minuteId: string) {
+    if (!SUPABASE_CONFIGURED) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase!.rpc('copy_tasks_to_new_minute', {
+      new_minute_id: minuteId
+    })
+    if (error) throw error
+    return data || []
+  }
+
+  return { createMinute, countPendingTasks, copyTasksToMinute }
 }
+

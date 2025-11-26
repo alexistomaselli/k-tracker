@@ -1,24 +1,32 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, DollarSign } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Calendar, DollarSign, Plus } from 'lucide-react';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
-import { useProjects, useTasks, useMinutes, useParticipants, useAreas } from '../hooks/useData';
+import { useProjects, useTasks, useMinutes, useParticipants, useAreas, useMinuteActions } from '../hooks/useData';
+import CreateMinuteModal from '../components/minutes/CreateMinuteModal';
+import TaskCarryoverDialog from '../components/minutes/TaskCarryoverDialog';
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'tasks' | 'minutes' | 'responsables'>('tasks');
   const [taskView, setTaskView] = useState<'kanban' | 'list'>('kanban');
+  const [showCreateMinute, setShowCreateMinute] = useState(false);
+  const [showCarryoverDialog, setShowCarryoverDialog] = useState(false);
+  const [newMinuteId, setNewMinuteId] = useState<string | null>(null);
+  const [pendingTasksCount, setPendingTasksCount] = useState(0);
 
   const { getProjectById, loading: projectsLoading, error: projectsError } = useProjects();
   const { getTasksByProject, loading: tasksLoading, error: tasksError } = useTasks();
   const { getMinutesByProject, loading: minutesLoading, error: minutesError } = useMinutes();
   const { participants, getParticipantById, loading: participantsLoading, error: participantsError } = useParticipants();
   const { getAreaById, error: areasError } = useAreas();
+  const { countPendingTasks, copyTasksToMinute } = useMinuteActions();
 
   const project = getProjectById(projectId!);
   const tasks = getTasksByProject(projectId!);
@@ -57,6 +65,37 @@ export default function ProjectDetail() {
     completed: tasks.filter((t) => t.status === 'completed'),
     canceled: tasks.filter((t) => t.status === 'canceled'),
     permanent: tasks.filter((t) => t.status === 'permanent'),
+  };
+
+  const handleMinuteCreated = async (minuteId: string) => {
+    setNewMinuteId(minuteId);
+    setShowCreateMinute(false);
+
+    // Verificar tareas pendientes
+    const count = await countPendingTasks(projectId!);
+
+    if (count > 0) {
+      setPendingTasksCount(count);
+      setShowCarryoverDialog(true);
+    } else {
+      // No hay tareas pendientes, ir directo al detalle
+      navigate(`/minutes/${minuteId}`);
+    }
+  };
+
+  const handleConfirmCarryover = async () => {
+    if (newMinuteId) {
+      await copyTasksToMinute(newMinuteId);
+      setShowCarryoverDialog(false);
+      navigate(`/minutes/${newMinuteId}`);
+    }
+  };
+
+  const handleSkipCarryover = () => {
+    if (newMinuteId) {
+      setShowCarryoverDialog(false);
+      navigate(`/minutes/${newMinuteId}`);
+    }
   };
 
   const tabs = [
@@ -103,11 +142,10 @@ export default function ProjectDetail() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-3 px-1 border-b-2 font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'border-[#0A4D8C] text-[#0A4D8C]'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`pb-3 px-1 border-b-2 font-medium transition-colors ${activeTab === tab.id
+                ? 'border-[#0A4D8C] text-[#0A4D8C]'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               {tab.label}
             </button>
@@ -277,53 +315,80 @@ export default function ProjectDetail() {
       )}
 
       {activeTab === 'minutes' && (
-        <Card>
-          <CardContent className="pt-4">
-            {minutes.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No hay actas registradas para este proyecto</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Número</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Tareas</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {minutes.map((minute) => {
-                      const minuteTasks = tasks.filter((t) => t.minute_id === minute.id);
-                      return (
-                        <tr key={minute.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium">Acta #{minute.minute_number}</td>
-                          <td className="py-3 px-4">{minute.meeting_date}</td>
-                          <td className="py-3 px-4">
-                            <Badge variant={minute.status === 'final' ? 'completed' : 'draft'}>
-                              {minute.status === 'final' ? 'Final' : 'Borrador'}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">{minuteTasks.length}</td>
-                          <td className="py-3 px-4">
-                            <Link to={`/minutes/${minute.id}`}>
-                              <Button variant="outline" size="sm">
-                                Ver Detalle
-                              </Button>
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              onClick={() => setShowCreateMinute(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Acta
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="pt-4">
+              {minutes.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No hay actas registradas para este proyecto</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Número</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Tareas</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {minutes.map((minute) => {
+                        const minuteTasks = tasks.filter((t) => t.minute_id === minute.id);
+                        return (
+                          <tr key={minute.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 font-medium">Acta #{minute.minute_number}</td>
+                            <td className="py-3 px-4">{minute.meeting_date}</td>
+                            <td className="py-3 px-4">
+                              <Badge variant={minute.status === 'final' ? 'completed' : 'draft'}>
+                                {minute.status === 'final' ? 'Final' : 'Borrador'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">{minuteTasks.length}</td>
+                            <td className="py-3 px-4">
+                              <Link to={`/minutes/${minute.id}`}>
+                                <Button variant="outline" size="sm">
+                                  Ver Detalle
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <CreateMinuteModal
+            isOpen={showCreateMinute}
+            onClose={() => setShowCreateMinute(false)}
+            projectId={projectId!}
+            projectCode={project?.code || ''}
+            onSuccess={handleMinuteCreated}
+          />
+
+          <TaskCarryoverDialog
+            isOpen={showCarryoverDialog}
+            pendingTasksCount={pendingTasksCount}
+            onConfirm={handleConfirmCarryover}
+            onSkip={handleSkipCarryover}
+          />
+        </div>
       )}
 
       {activeTab === 'responsables' && (
