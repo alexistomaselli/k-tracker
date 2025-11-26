@@ -105,5 +105,14 @@ async function discoverCompanyId() {
     }
     console.log('Participant updated and linked', email)
   }
+  // Also update user metadata with company_id for frontend resolution
+  const { error: updErr } = await supabase.auth.admin.updateUserById(user.id, {
+    user_metadata: { company_id: companyId },
+  })
+  if (updErr) {
+    console.error('Update user metadata error:', updErr.message)
+    process.exit(7)
+  }
+  console.log('User metadata updated with company_id')
   console.log('Done')
 })()

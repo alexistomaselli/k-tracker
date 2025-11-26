@@ -42,27 +42,30 @@ export default function Signup() {
           const name = formData.company_name.trim();
           const tax_id = formData.tax_id.trim();
           const phone = formData.phone.trim();
-          const { data: companyRes, error: companyErr } = await supabase
-            .from('company')
-            .insert({ name, tax_id, phone })
-            .select('id')
-            .single();
-          const company_id = companyRes?.id;
+
           const { data: sessionRes } = await supabase.auth.getUser();
           const user_id = sessionRes.user?.id || data.user?.id || null;
-          if (company_id && user_id) {
-            const names = email.split('@')[0];
-            const first = names || 'Admin';
-            const last = 'Company';
-            await supabase
-              .from('participants')
-              .insert({ company_id, user_id, first_name: first, last_name: last, email });
-          }
-          if (companyErr) {
-            console.warn('Company creation error:', companyErr.message);
+
+          if (user_id) {
+            const { data: companyId, error: rpcError } = await supabase.rpc('create_company_for_new_user', {
+              p_name: name,
+              p_tax_id: tax_id,
+              p_phone: phone,
+              p_user_id: user_id
+            });
+
+            if (rpcError) {
+              throw rpcError;
+            }
+
+            if (companyId) {
+              await supabase.auth.updateUser({ data: { company_id: companyId } });
+            }
           }
         } catch (e: any) {
           console.warn('Post-signup linking failed:', e?.message || e);
+          setError(e?.message || 'Error al crear y vincular la empresa');
+          return;
         }
         navigate('/dashboard');
       });

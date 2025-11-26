@@ -7,35 +7,86 @@ export function useProjects() {
   const mock = useMockProjects()
   const [projects, setProjects] = useState<Project[]>(mock.projects)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function load() {
+    if (!SUPABASE_CONFIGURED) return
+    setLoading(true)
+    setError(null)
+    const supabase = getSupabase()
+    const { data, error } = await supabase!.from('project').select('*').order('created_at', { ascending: false })
+    if (error) {
+      setError(error.message)
+    }
+    setProjects((data as Project[]) ?? [])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    async function load() {
-      if (!SUPABASE_CONFIGURED) return
-      setLoading(true)
-      const supabase = getSupabase()
-      const { data } = await supabase!.from('project').select('*').order('created_at', { ascending: false })
-      setProjects((data as Project[]) ?? [])
-      setLoading(false)
-    }
     load()
   }, [])
 
   const getProjectById = (id: string) => projects.find((p) => p.id === id)
 
-  return { projects, loading, getProjectById }
+  async function createProject(payload: { name: string; code: string; status: Project['status']; start_date: string; estimated_end_date: string; budget?: number }) {
+    if (SUPABASE_CONFIGURED) {
+      const supabase = getSupabase()
+      const { data: sessionRes } = await supabase!.auth.getSession()
+      const userObj = sessionRes?.session?.user
+      const uid = userObj?.id
+      const claimCompany = (userObj?.user_metadata as any)?.company_id || (userObj?.user_metadata as any)?.claims?.company_id || (userObj as any)?.app_metadata?.claims?.company_id || null
+      if (!uid) throw new Error('Usuario no autenticado')
+      let companyId: string | null = null
+      if (claimCompany) companyId = claimCompany as string
+      if (!companyId) {
+        const vc = await supabase!.from('user_company').select('company_id').eq('user_id', uid).limit(1).single()
+        if (vc.data?.company_id) companyId = vc.data.company_id as string
+      }
+      if (!companyId) throw new Error('No se pudo resolver compañía del usuario')
+      const insertPayload = { ...payload, company_id: companyId }
+      const { data, error } = await supabase!.from('project').insert(insertPayload).select().single()
+      if (error) throw new Error(error.message)
+      setProjects((prev) => [data as Project, ...prev])
+      return data as Project
+    } else {
+      const mockProject: Project = {
+        id: 'p' + Date.now(),
+        company_id: 'c1',
+        name: payload.name,
+        code: payload.code,
+        status: payload.status,
+        start_date: payload.start_date,
+        estimated_end_date: payload.estimated_end_date,
+        budget: payload.budget,
+      }
+      setProjects((prev) => [mockProject, ...prev])
+      return mockProject
+    }
+  }
+
+  async function reloadProjects() {
+    await load()
+  }
+
+  return { projects, loading, error, getProjectById, createProject, reloadProjects }
 }
 
 export function useMinutes() {
   const mock = useMockMinutes()
   const [minutes, setMinutes] = useState<Minute[]>(mock.minutes)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       if (!SUPABASE_CONFIGURED) return
       setLoading(true)
+      setError(null)
       const supabase = getSupabase()
-      const { data } = await supabase!.from('minutes').select('*').order('meeting_date', { ascending: false })
+      const { data, error } = await supabase!.from('minutes').select('*').order('meeting_date', { ascending: false })
+      if (error) {
+        setError(error.message)
+      }
       setMinutes((data as Minute[]) ?? [])
       setLoading(false)
     }
@@ -45,20 +96,25 @@ export function useMinutes() {
   const getMinuteById = (id: string) => minutes.find((m) => m.id === id)
   const getMinutesByProject = (projectId: string) => minutes.filter((m) => m.project_id === projectId)
 
-  return { minutes, loading, getMinuteById, getMinutesByProject }
+  return { minutes, loading, error, getMinuteById, getMinutesByProject }
 }
 
 export function useTasks() {
   const mock = useMockTasks()
   const [tasks, setTasks] = useState<Task[]>(mock.tasks)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       if (!SUPABASE_CONFIGURED) return
       setLoading(true)
+      setError(null)
       const supabase = getSupabase()
-      const { data } = await supabase!.from('tasks').select('*').order('due_date', { ascending: true })
+      const { data, error } = await supabase!.from('tasks').select('*').order('due_date', { ascending: true })
+      if (error) {
+        setError(error.message)
+      }
       setTasks((data as Task[]) ?? [])
       setLoading(false)
     }
@@ -70,7 +126,7 @@ export function useTasks() {
   const getTasksByMinute = (minuteId: string) => tasks.filter((t) => t.minute_id === minuteId)
   const getTasksByAssignee = (assigneeId: string) => tasks.filter((t) => t.assignee_id === assigneeId)
 
-  return { tasks, loading, getTaskById, getTasksByProject, getTasksByMinute, getTasksByAssignee }
+  return { tasks, loading, error, getTaskById, getTasksByProject, getTasksByMinute, getTasksByAssignee }
 }
 
  
@@ -171,13 +227,18 @@ export function useParticipants() {
   const mock = useMockParticipants()
   const [participants, setParticipants] = useState<Participant[]>(mock.participants)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       if (!SUPABASE_CONFIGURED) return
       setLoading(true)
+      setError(null)
       const supabase = getSupabase()
-      const { data } = await supabase!.from('participants').select('*').order('last_name', { ascending: true })
+      const { data, error } = await supabase!.from('participants').select('*').order('last_name', { ascending: true })
+      if (error) {
+        setError(error.message)
+      }
       setParticipants((data as Participant[]) ?? [])
       setLoading(false)
     }
@@ -186,18 +247,22 @@ export function useParticipants() {
 
   const getParticipantById = (id: string) => participants.find((p) => p.id === id)
 
-  return { participants, loading, getParticipantById }
+  return { participants, loading, error, getParticipantById }
 }
 
 export function useAreas() {
   const mock = useMockAreas()
   const [areas, setAreas] = useState<Area[]>(mock.areas)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       if (!SUPABASE_CONFIGURED) return
       const supabase = getSupabase()
-      const { data } = await supabase!.from('area').select('*').order('name', { ascending: true })
+      const { data, error } = await supabase!.from('area').select('*').order('name', { ascending: true })
+      if (error) {
+        setError(error.message)
+      }
       setAreas((data as Area[]) ?? [])
     }
     load()
@@ -205,5 +270,5 @@ export function useAreas() {
 
   const getAreaById = (id: string) => areas.find((a) => a.id === id)
 
-  return { areas, getAreaById }
+  return { areas, error, getAreaById }
 }

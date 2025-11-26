@@ -6,9 +6,10 @@ interface NavbarProps {
   isAuthenticated?: boolean;
   onMenuClick?: () => void;
   onLogout?: () => void;
+  userLabel?: string;
 }
 
-export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout }: NavbarProps) {
+export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout, userLabel }: NavbarProps) {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" role="navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,7 +53,7 @@ export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout 
                   aria-label="Perfil de usuario"
                 >
                   <User className="w-5 h-5 text-gray-600" />
-                  <span className="hidden sm:inline text-sm text-gray-700">Usuario</span>
+                  <span className="hidden sm:inline text-sm text-gray-700">{userLabel || 'Usuario'}</span>
                 </button>
                 <button
                   onClick={onLogout}

@@ -14,15 +14,34 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'minutes' | 'responsables'>('tasks');
   const [taskView, setTaskView] = useState<'kanban' | 'list'>('kanban');
 
-  const { getProjectById } = useProjects();
-  const { getTasksByProject } = useTasks();
-  const { getMinutesByProject } = useMinutes();
-  const { participants, getParticipantById } = useParticipants();
-  const { getAreaById } = useAreas();
+  const { getProjectById, loading: projectsLoading, error: projectsError } = useProjects();
+  const { getTasksByProject, loading: tasksLoading, error: tasksError } = useTasks();
+  const { getMinutesByProject, loading: minutesLoading, error: minutesError } = useMinutes();
+  const { participants, getParticipantById, loading: participantsLoading, error: participantsError } = useParticipants();
+  const { getAreaById, error: areasError } = useAreas();
 
   const project = getProjectById(projectId!);
   const tasks = getTasksByProject(projectId!);
   const minutes = getMinutesByProject(projectId!);
+
+  const isLoading = projectsLoading || tasksLoading || minutesLoading || participantsLoading;
+  const error = projectsError || tasksError || minutesError || participantsError || areasError;
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">Error al cargar datos del proyecto: {error}</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Cargando datos del proyecto...</p>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
