@@ -24,6 +24,7 @@ export interface Participant {
   phone: string;
   active: boolean;
   user_id?: string;
+  area_id?: string;
 }
 
 export interface Project {
@@ -51,7 +52,7 @@ export interface Minute {
   start_time: string;
   end_time: string;
   location: string;
-  status: 'draft' | 'final';
+  status: 'draft' | 'final' | 'in_progress';
   notes?: string;
 }
 
@@ -147,6 +148,7 @@ export const mockParticipants: Participant[] = [
     phone: '+51987654321',
     active: true,
     user_id: 'u2',
+    area_id: 'ar1', // Estructuras
   },
   {
     id: 'pa2',
@@ -157,6 +159,7 @@ export const mockParticipants: Participant[] = [
     email: 'maria@example.com',
     phone: '+51987654322',
     active: true,
+    area_id: 'ar2', // Arquitectura
   },
   {
     id: 'pa3',
@@ -167,6 +170,7 @@ export const mockParticipants: Participant[] = [
     email: 'carlos@example.com',
     phone: '+51987654323',
     active: true,
+    area_id: 'ar1', // Estructuras
   },
   {
     id: 'pa4',
@@ -177,6 +181,7 @@ export const mockParticipants: Participant[] = [
     email: 'ana@example.com',
     phone: '+51987654324',
     active: true,
+    area_id: 'ar1', // Estructuras
   },
 ];
 

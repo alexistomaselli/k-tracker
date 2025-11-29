@@ -6,10 +6,13 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
-import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
-import { useProjects, useTasks, useMinutes, useParticipants, useAreas, useMinuteActions } from '../hooks/useData';
+import { isTaskOverdue, calculateDaysLeft, Task, Participant } from '../hooks/useMockData';
+import { useProjects, useTasks, useMinutes, useParticipants, useAreas, useMinuteActions, useProjectResources, useParticipantActions } from '../hooks/useData';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import CreateMinuteModal from '../components/minutes/CreateMinuteModal';
 import TaskCarryoverDialog from '../components/minutes/TaskCarryoverDialog';
+import TaskModal from '../components/tasks/TaskModal';
+import ParticipantModal from '../components/hr/ParticipantModal';
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -17,16 +20,22 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'minutes' | 'responsables'>('tasks');
   const [taskView, setTaskView] = useState<'kanban' | 'list'>('kanban');
   const [showCreateMinute, setShowCreateMinute] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [showCarryoverDialog, setShowCarryoverDialog] = useState(false);
   const [newMinuteId, setNewMinuteId] = useState<string | null>(null);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
 
   const { getProjectById, loading: projectsLoading, error: projectsError } = useProjects();
-  const { getTasksByProject, loading: tasksLoading, error: tasksError } = useTasks();
+  const { getTasksByProject, loading: tasksLoading, error: tasksError, reloadTasks } = useTasks();
   const { getMinutesByProject, loading: minutesLoading, error: minutesError } = useMinutes();
-  const { participants, getParticipantById, loading: participantsLoading, error: participantsError } = useParticipants();
+  const { participants, getParticipantById, loading: participantsLoading, error: participantsError, reloadParticipants } = useParticipants();
   const { getAreaById, error: areasError } = useAreas();
   const { countPendingTasks, copyTasksToMinute } = useMinuteActions();
+  const { resources, addResource, removeResource, reloadResources } = useProjectResources(projectId!);
+  const { createParticipant } = useParticipantActions();
+  const [selectedParticipantId, setSelectedParticipantId] = useState('');
+  const [showCreateParticipantModal, setShowCreateParticipantModal] = useState(false);
 
   const project = getProjectById(projectId!);
   const tasks = getTasksByProject(projectId!);
@@ -98,10 +107,50 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleCreateTask = () => {
+    setTaskToEdit(null);
+    setShowTaskModal(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setTaskToEdit(task);
+    setShowTaskModal(true);
+  };
+
+  const handleTaskSuccess = async () => {
+    await reloadTasks();
+    setShowTaskModal(false);
+    setTaskToEdit(null);
+    setTaskToEdit(null);
+  };
+
+  const handleCreateParticipant = async (participantData: Partial<Participant>) => {
+    try {
+      if (!participantData.first_name || !participantData.last_name || !participantData.email) return;
+
+      const newParticipant = await createParticipant(participantData as any);
+      if (newParticipant) {
+        await reloadParticipants(); // Reload list to include new participant
+        await addResource(newParticipant.id); // Auto-add to project
+        setShowCreateParticipantModal(false);
+      }
+    } catch (error) {
+      console.error('Error creating participant:', error);
+      alert('Error al crear participante');
+    }
+  };
+
+  const isSetupMode = resources.length === 0;
+
+  // Force active tab to 'responsables' if in setup mode
+  if (isSetupMode && activeTab !== 'responsables') {
+    setActiveTab('responsables');
+  }
+
   const tabs = [
-    { id: 'tasks', label: 'Tareas' },
-    { id: 'minutes', label: 'Actas' },
-    { id: 'responsables', label: 'Responsables' },
+    { id: 'tasks', label: 'Tareas', disabled: isSetupMode },
+    { id: 'minutes', label: 'Actas', disabled: isSetupMode },
+    { id: 'responsables', label: 'Responsables', disabled: false },
   ];
 
   return (
@@ -141,10 +190,13 @@ export default function ProjectDetail() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => !tab.disabled && setActiveTab(tab.id as any)}
+              disabled={tab.disabled}
               className={`pb-3 px-1 border-b-2 font-medium transition-colors ${activeTab === tab.id
                 ? 'border-[#0A4D8C] text-[#0A4D8C]'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                : tab.disabled
+                  ? 'border-transparent text-gray-300 cursor-not-allowed'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
             >
               {tab.label}
@@ -172,7 +224,7 @@ export default function ProjectDetail() {
                 Lista
               </Button>
             </div>
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="sm" onClick={handleCreateTask}>
               Nueva Tarea
             </Button>
           </div>
@@ -195,10 +247,10 @@ export default function ProjectDetail() {
                         const daysLeft = calculateDaysLeft(task.due_date);
                         const isOverdue = isTaskOverdue(task);
                         return (
-                          <Link
+                          <div
                             key={task.id}
-                            to={`/tasks/${task.id}`}
-                            className="block p-3 bg-white border border-gray-200 rounded-md hover:shadow-md transition-shadow"
+                            onClick={() => handleEditTask(task)}
+                            className="block p-3 bg-white border border-gray-200 rounded-md hover:shadow-md transition-shadow cursor-pointer"
                           >
                             <div className="flex items-start gap-2 mb-2">
                               {assignee && (
@@ -232,7 +284,7 @@ export default function ProjectDetail() {
                                 </p>
                               )}
                             </div>
-                          </Link>
+                          </div>
                         );
                       })}
                     </div>
@@ -263,12 +315,12 @@ export default function ProjectDetail() {
                         return (
                           <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="py-3 px-4">
-                              <Link
-                                to={`/tasks/${task.id}`}
-                                className="text-[#0A4D8C] hover:underline font-medium"
+                              <span
+                                onClick={() => handleEditTask(task)}
+                                className="text-[#0A4D8C] hover:underline font-medium cursor-pointer"
                               >
                                 {task.description}
-                              </Link>
+                              </span>
                             </td>
                             <td className="py-3 px-4">
                               {assignee && (
@@ -388,12 +440,84 @@ export default function ProjectDetail() {
             onConfirm={handleConfirmCarryover}
             onSkip={handleSkipCarryover}
           />
+
+          <TaskModal
+            isOpen={showTaskModal}
+            onClose={() => setShowTaskModal(false)}
+            projectId={projectId!}
+            taskToEdit={taskToEdit}
+            onSuccess={handleTaskSuccess}
+          />
         </div>
       )}
 
       {activeTab === 'responsables' && (
         <Card>
           <CardContent className="pt-4">
+            {isSetupMode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-900">Configuración Inicial del Proyecto</h3>
+                  <p className="text-blue-700 text-sm mt-1">
+                    Para comenzar a crear actas y tareas, primero debes asignar los participantes que formarán parte de este proyecto.
+                    Agrega al menos una persona para habilitar las demás funciones.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="mb-6 flex gap-4 items-end">
+              <div className="flex-1 max-w-md">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Agregar Recurso al Proyecto
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={participants
+                        .filter(p => !resources.some(r => r.id === p.id))
+                        .map(p => {
+                          const area = getAreaById(p.area_id || '');
+                          return {
+                            value: p.id,
+                            label: `${p.first_name} ${p.last_name}`,
+                            description: p.title,
+                            badge: area ? { text: area.name, color: area.color } : undefined
+                          };
+                        })}
+                      value={selectedParticipantId}
+                      onChange={setSelectedParticipantId}
+                      placeholder="Buscar persona..."
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCreateParticipantModal(true)}
+                    className="whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear Nuevo
+                  </Button>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (selectedParticipantId) {
+                    addResource(selectedParticipantId);
+                    setSelectedParticipantId('');
+                  }
+                }}
+                disabled={!selectedParticipantId}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar
+              </Button>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -402,39 +526,63 @@ export default function ProjectDetail() {
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Cargo</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Email</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-900">Teléfono</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {participants.map((participant) => (
-                    <tr key={participant.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            name={`${participant.first_name} ${participant.last_name}`}
-                            size="sm"
-                          />
-                          <span className="font-medium">
-                            {participant.title} {participant.first_name} {participant.last_name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">{participant.role}</td>
-                      <td className="py-3 px-4">{participant.email}</td>
-                      <td className="py-3 px-4">{participant.phone}</td>
-                      <td className="py-3 px-4">
-                        <Badge variant={participant.active ? 'active' : 'canceled'}>
-                          {participant.active ? 'Activo' : 'Inactivo'}
-                        </Badge>
+                  {resources.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-gray-500">
+                        No hay recursos asignados a este proyecto.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    resources.map((participant) => (
+                      <tr key={participant.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Avatar
+                              name={`${participant.first_name} ${participant.last_name}`}
+                              size="sm"
+                            />
+                            <span className="font-medium">
+                              {participant.first_name} {participant.last_name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">{participant.title}</td>
+                        <td className="py-3 px-4">{participant.email}</td>
+                        <td className="py-3 px-4">{participant.phone}</td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            onClick={() => {
+                              if (confirm('¿Quitar recurso del proyecto?')) {
+                                removeResource(participant.id);
+                              }
+                            }}
+                          >
+                            Quitar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <ParticipantModal
+        isOpen={showCreateParticipantModal}
+        onClose={() => setShowCreateParticipantModal(false)}
+        onConfirm={handleCreateParticipant}
+      />
     </div>
   );
 }
+

@@ -12,33 +12,40 @@ import Minutes from './pages/Minutes';
 import MinuteDetail from './pages/MinuteDetail';
 import TaskDetail from './pages/TaskDetail';
 import MyTasks from './pages/MyTasks';
+import Areas from './pages/Areas';
+import HumanResources from './pages/HumanResources';
 import AppLayout from './components/layout/AppLayout';
 import { RequireAuth } from './hooks/useAuth';
+import { ToastProvider } from './context/ToastContext';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/login-responsable" element={<LoginResponsable />} />
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/login-responsable" element={<LoginResponsable />} />
 
-        <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:projectId" element={<ProjectDetail />} />
-          <Route path="/minutes" element={<Minutes />} />
-          <Route path="/minutes/:minuteId" element={<MinuteDetail />} />
-          <Route path="/tasks/:taskId" element={<TaskDetail />} />
-          <Route path="/my-tasks" element={<MyTasks />} />
-        </Route>
+          <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route path="/minutes" element={<Minutes />} />
+            <Route path="/minutes/:minuteId" element={<MinuteDetail />} />
+            <Route path="/tasks/:taskId" element={<TaskDetail />} />
+            <Route path="/my-tasks" element={<MyTasks />} />
+            <Route path="/areas" element={<Areas />} />
+            <Route path="/hr" element={<HumanResources />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 

@@ -1,11 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  FolderKanban,
-  FileText,
-  CheckSquare,
-  X,
-} from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, CheckSquare, LogOut, Layers, Users, X } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,9 +9,11 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const links = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/projects', icon: FolderKanban, label: 'Proyectos' },
+    { to: '/projects', icon: FolderOpen, label: 'Proyectos' },
     { to: '/minutes', icon: FileText, label: 'Actas' },
     { to: '/my-tasks', icon: CheckSquare, label: 'Mis Tareas' },
+    { to: '/areas', icon: Layers, label: 'Áreas' },
+    { to: '/hr', icon: Users, label: 'Recursos Humanos' },
   ];
 
   return (
@@ -30,9 +26,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen bg-white border-r border-gray-200 transition-transform duration-300 z-50 lg:z-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } w-64`}
+        className={`fixed lg:sticky top-0 left-0 h-screen bg-white border-r border-gray-200 transition-transform duration-300 z-50 lg:z-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          } w-64`}
         role="complementary"
       >
         <div className="flex flex-col h-full">
@@ -49,10 +44,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 key={link.to}
                 to={link.to}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${
-                    isActive
-                      ? 'bg-[#0A4D8C] text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${isActive
+                    ? 'bg-[#0A4D8C] text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
                   }`
                 }
                 onClick={() => onClose()}
