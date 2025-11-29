@@ -26,7 +26,7 @@ export default function MinuteDetail() {
   const { attendance, reloadAttendance } = useAttendance(minuteId!);
   const { getTasksByMinute, reloadTasks } = useTasks();
   const { participants, getParticipantById, reloadParticipants } = useParticipants();
-  const { areas, getAreaById } = useAreas();
+  const { areas } = useAreas();
   const { createTask, deleteTask } = useTaskActions();
   const { updateParticipant } = useParticipantActions();
   const { updateMinute } = useMinuteActions();
@@ -39,7 +39,6 @@ export default function MinuteDetail() {
   const project = minute ? getProjectById(minute.project_id) : null;
   const { resources } = useProjectResources(project?.id || '');
   const tasks = getTasksByMinute(minuteId!);
-  const pendingCount = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
 
   const handleTaskSuccess = async () => {
     await reloadTasks();
