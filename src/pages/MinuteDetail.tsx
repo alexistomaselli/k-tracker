@@ -378,8 +378,13 @@ export default function MinuteDetail() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              await markAttendance(minuteId!, participant.id, 'present');
-                              reloadAttendance();
+                              try {
+                                await markAttendance(minuteId!, participant.id, 'present');
+                                await reloadAttendance();
+                              } catch (err) {
+                                console.error('Error marking present:', err);
+                                alert('Error al registrar asistencia');
+                              }
                             }}
                             className={`p-1.5 rounded-full transition-colors ${status === 'present' ? 'bg-green-100 text-green-600' : 'text-gray-300 hover:bg-gray-100'}`}
                             title="Presente"
@@ -389,8 +394,13 @@ export default function MinuteDetail() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              await markAttendance(minuteId!, participant.id, 'absent');
-                              reloadAttendance();
+                              try {
+                                await markAttendance(minuteId!, participant.id, 'absent');
+                                await reloadAttendance();
+                              } catch (err) {
+                                console.error('Error marking absent:', err);
+                                alert('Error al registrar inasistencia');
+                              }
                             }}
                             className={`p-1.5 rounded-full transition-colors ${status === 'absent' ? 'bg-red-100 text-red-600' : 'text-gray-300 hover:bg-gray-100'}`}
                             title="Ausente"
@@ -400,10 +410,13 @@ export default function MinuteDetail() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              const { useAttendanceActions } = await import('../hooks/useData');
-                              const { markAttendance } = useAttendanceActions();
-                              await markAttendance(minuteId!, participant.id, 'excused');
-                              window.location.reload();
+                              try {
+                                await markAttendance(minuteId!, participant.id, 'excused');
+                                await reloadAttendance();
+                              } catch (err) {
+                                console.error('Error marking excused:', err);
+                                alert('Error al registrar justificación');
+                              }
                             }}
                             className={`p-1.5 rounded-full transition-colors ${status === 'excused' ? 'bg-yellow-100 text-yellow-600' : 'text-gray-300 hover:bg-gray-100'}`}
                             title="Justificado"
