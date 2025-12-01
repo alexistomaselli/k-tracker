@@ -4,7 +4,10 @@ export interface Company {
   tax_id: string;
   email: string;
   phone: string;
+  address?: string;
   logo_url?: string;
+  trial_days?: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface User {
@@ -25,6 +28,7 @@ export interface Participant {
   active: boolean;
   user_id?: string;
   area_id?: string;
+  password_changed?: boolean;
 }
 
 export interface Project {

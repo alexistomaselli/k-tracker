@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, FileText, CheckSquare, LogOut, Layers, Users, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, CheckSquare, LogOut, Layers, Users, User, X, CreditCard } from 'lucide-react';
+
+import { useCurrentUser } from '../../hooks/useData';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -7,14 +9,38 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const links = [
+  const { participant, isAdmin, loading } = useCurrentUser();
+
+  const allLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/projects', icon: FolderOpen, label: 'Proyectos' },
     { to: '/minutes', icon: FileText, label: 'Actas' },
     { to: '/my-tasks', icon: CheckSquare, label: 'Mis Tareas' },
     { to: '/areas', icon: Layers, label: 'Áreas' },
     { to: '/hr', icon: Users, label: 'Recursos Humanos' },
+    { to: '/billing', icon: CreditCard, label: 'Facturación' },
+    { to: '/my-account', icon: User, label: 'Mi Cuenta' },
   ];
+
+  let links: typeof allLinks = [];
+
+  if (!loading) {
+    if (participant && !isAdmin) {
+      // Participant view
+      if (participant.password_changed) {
+        links = [
+          { to: '/dashboard', icon: LayoutDashboard, label: 'Mis Tareas' },
+          { to: '/my-account', icon: User, label: 'Mi Cuenta' },
+        ];
+      } else {
+        // New participant (no password set) - Show NO links
+        links = [];
+      }
+    } else {
+      // Admin view (or default)
+      links = allLinks;
+    }
+  }
 
   return (
     <>
@@ -60,7 +86,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="p-4 border-t border-gray-200">
             <div className="text-xs text-gray-500">
               <p className="font-semibold">Constructora del Sur</p>
-              <p>Plan Profesional</p>
             </div>
           </div>
         </div>

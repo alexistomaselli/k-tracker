@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
@@ -15,8 +15,19 @@ import MyTasks from './pages/MyTasks';
 import Areas from './pages/Areas';
 import HumanResources from './pages/HumanResources';
 import AppLayout from './components/layout/AppLayout';
-import { RequireAuth } from './hooks/useAuth';
+import { RequireAuth, RequireAdmin } from './hooks/useAuth';
 import { ToastProvider } from './context/ToastContext';
+
+import MyAccount from './pages/MyAccount';
+import Billing from './pages/Billing';
+import AdminLayout from './components/layout/AdminLayout';
+import { AdminDashboard } from './pages/admin/Placeholders';
+import AdminCompanies from './pages/admin/AdminCompanies';
+import AdminPlans from './pages/admin/AdminPlans';
+import AdminPayments from './pages/admin/AdminPayments';
+import AdminBankAccounts from './pages/admin/AdminBankAccounts';
+
+import SelectPlan from './pages/SelectPlan';
 
 function App() {
   return (
@@ -32,14 +43,31 @@ function App() {
 
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:projectId" element={<ProjectDetail />} />
-            <Route path="/minutes" element={<Minutes />} />
+
+            {/* Admin Only Routes */}
+            <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:projectId" element={<ProjectDetail />} />
+              <Route path="/areas" element={<Areas />} />
+              <Route path="/hr" element={<HumanResources />} />
+              <Route path="/minutes" element={<Minutes />} />
+            </Route>
+
             <Route path="/minutes/:minuteId" element={<MinuteDetail />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
             <Route path="/my-tasks" element={<MyTasks />} />
-            <Route path="/areas" element={<Areas />} />
-            <Route path="/hr" element={<HumanResources />} />
+            <Route path="/my-account" element={<MyAccount />} />
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/select-plan" element={<SelectPlan />} />
+          </Route>
+
+          {/* KAI PRO Admin Routes */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="companies" element={<AdminCompanies />} />
+            <Route path="plans" element={<AdminPlans />} />
+            <Route path="payments" element={<AdminPayments />} />
+            <Route path="bank-accounts" element={<AdminBankAccounts />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

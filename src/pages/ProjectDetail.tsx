@@ -128,10 +128,10 @@ export default function ProjectDetail() {
     try {
       if (!participantData.first_name || !participantData.last_name || !participantData.email) return;
 
-      const newParticipant = await createParticipant(participantData as any);
-      if (newParticipant) {
+      const result = await createParticipant(participantData as any);
+      if (result && result.participant) {
         await reloadParticipants(); // Reload list to include new participant
-        await addResource(newParticipant.id); // Auto-add to project
+        await addResource(result.participant.id); // Auto-add to project
         setShowCreateParticipantModal(false);
       }
     } catch (error) {

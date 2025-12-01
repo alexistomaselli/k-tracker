@@ -31,6 +31,13 @@ export default function ResetPassword() {
       setError(error.message || 'No se pudo actualizar la contraseña')
       return
     }
+
+    // Update password_changed flag in participants table
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('participants').update({ password_changed: true }).eq('user_id', user.id)
+    }
+
     setMessage('Contraseña actualizada. Inicia sesión nuevamente.')
     setTimeout(() => navigate('/login'), 1200)
   }

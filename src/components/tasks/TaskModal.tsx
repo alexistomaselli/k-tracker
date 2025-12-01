@@ -111,12 +111,12 @@ export default function TaskModal({
                 await createTask({
                     project_id: projectId,
                     description: formData.description,
-                    assignee_id: formData.assigneeId,
+                    assignee_id: formData.assigneeId || undefined,
                     priority: formData.priority,
                     status: formData.status,
                     due_date: formData.dueDate || undefined,
                     minute_id: minuteId,
-                    area_id: formData.areaId,
+                    area_id: formData.areaId || undefined,
                 });
             }
 

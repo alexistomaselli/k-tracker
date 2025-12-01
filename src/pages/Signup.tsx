@@ -31,7 +31,16 @@ export default function Signup() {
       return;
     }
     const supabase = getSupabase()!;
-    supabase.auth.signUp({ email: formData.email.trim(), password: formData.password.trim() })
+    supabase.auth.signUp({
+      email: formData.email.trim(),
+      password: formData.password.trim(),
+      options: {
+        data: {
+          is_company_signup: true,
+          company_name: formData.company_name.trim()
+        }
+      }
+    })
       .then(async ({ data, error }) => {
         if (error) {
           setError(error.message || 'No se pudo crear la cuenta');

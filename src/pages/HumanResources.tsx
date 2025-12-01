@@ -9,7 +9,7 @@ export default function HumanResources() {
     const { participants, loading, error, reloadParticipants } = useParticipants();
     const { createParticipant, updateParticipant, deleteParticipant } = useParticipantActions();
     const { areas } = useAreas();
-    const { addToast } = useToast();
+    const toast = useToast();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [participantToEdit, setParticipantToEdit] = useState<Participant | null>(null);
@@ -26,20 +26,26 @@ export default function HumanResources() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (window.confirm('¿Estás seguro de eliminar este participante?')) {
-            try {
-                setActionLoading(true);
-                await deleteParticipant(id);
-                await reloadParticipants();
-                addToast('Participante eliminado correctamente', 'success');
-            } catch (err) {
-                console.error('Error deleting participant:', err);
-                addToast('Error al eliminar el participante', 'error');
-            } finally {
-                setActionLoading(false);
-            }
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        try {
+            setActionLoading(true);
+            await deleteParticipant(deleteId);
+            await reloadParticipants();
+            toast.success('Participante eliminado correctamente');
+        } catch (err) {
+            console.error('Error deleting participant:', err);
+            toast.error('Error al eliminar el participante');
+        } finally {
+            setActionLoading(false);
+            setDeleteId(null);
         }
+    };
+
+    const handleDelete = (id: string) => {
+        setDeleteId(id);
     };
 
     const handleSave = async (data: Partial<Participant>) => {
@@ -47,16 +53,20 @@ export default function HumanResources() {
             setActionLoading(true);
             if (participantToEdit) {
                 await updateParticipant(participantToEdit.id, data);
-                addToast('Participante actualizado correctamente', 'success');
+                toast.success('Participante actualizado correctamente');
             } else {
-                await createParticipant(data as any);
-                addToast('Participante creado correctamente', 'success');
+                const result = await createParticipant(data as any);
+                if (result && result.inviteSent) {
+                    toast.success('Participante creado y correo de invitación enviado');
+                } else {
+                    toast.success('Participante creado correctamente (sin invitación enviada)');
+                }
             }
             await reloadParticipants();
             setIsModalOpen(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error saving participant:', err);
-            addToast('Error al guardar el participante', 'error');
+            toast.error(`Error: ${err.message || 'Error desconocido'}`);
         } finally {
             setActionLoading(false);
         }
@@ -220,6 +230,34 @@ export default function HumanResources() {
                 participantToEdit={participantToEdit}
                 loading={actionLoading}
             />
+
+            {/* Delete Confirmation Modal */}
+            {deleteId && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Confirmar eliminación</h3>
+                        <p className="text-gray-600 mb-6">
+                            ¿Estás seguro de que deseas eliminar este participante? Esta acción no se puede deshacer.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setDeleteId(null)}
+                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                disabled={actionLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2"
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

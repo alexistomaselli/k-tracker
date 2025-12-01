@@ -31,13 +31,35 @@ export function useAuth() {
 
   const isAuthenticated = STRICT ? !!session : (!!session || !SUPABASE_CONFIGURED)
   const verified = !!user?.email_confirmed_at
-  return { loading, session, user, isAuthenticated, verified, requireEmailVerified: VERIFIED_REQUIRED }
+
+  const signOut = async () => {
+    if (!SUPABASE_CONFIGURED) return
+    const supabase = getSupabase()!
+    await supabase.auth.signOut()
+  }
+
+  return { loading, session, user, isAuthenticated, verified, requireEmailVerified: VERIFIED_REQUIRED, signOut }
 }
+
+import { useCurrentUser } from './useData'
 
 export function RequireAuth({ children }: { children: any }) {
   const { loading, isAuthenticated, verified, requireEmailVerified } = useAuth()
   if (loading) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (requireEmailVerified && !verified) return <Navigate to="/login?verifyEmail=true" replace />
+  return children
+}
+
+export function RequireAdmin({ children }: { children: any }) {
+  const { isAdmin, loading } = useCurrentUser()
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Cargando...</div>
+
+  if (!isAdmin) {
+    // Redirect participants to their dashboard/tasks view if they try to access admin routes
+    return <Navigate to="/dashboard" replace />
+  }
+
   return children
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, Eye, EyeOff } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,10 +14,11 @@ export default function Login() {
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const showVerifyNotice = new URLSearchParams(location.search).has('verifyEmail');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!SUPABASE_CONFIGURED) {
       navigate('/dashboard');
@@ -27,14 +28,46 @@ export default function Login() {
     const supabase = getSupabase()!;
     const email = formData.email.trim();
     const password = formData.password.trim();
-    supabase.auth.signInWithPassword({ email, password })
-      .then(({ error }) => {
-        if (error) {
-          setError(error.message || 'Credenciales inválidas');
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setError(error.message || 'Credenciales inválidas');
+        return;
+      }
+
+      if (data.user) {
+        // 1. Check if user is platform admin
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (adminUser) {
+          navigate('/admin');
           return;
         }
-        navigate('/dashboard');
-      });
+
+        // 2. Check if user is a Company Admin (exists in user_company)
+        const { data: userCompany } = await supabase
+          .from('user_company')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (userCompany) {
+          navigate('/dashboard');
+        } else {
+          // If not admin and not company user, they must be a participant/responsable trying to login here
+          await supabase.auth.signOut();
+          setError('Esta cuenta no tiene permisos de administrador. Por favor ingresa como Responsable.');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,15 +109,28 @@ export default function Login() {
                 placeholder="contacto@empresa.com"
                 required
               />
-              <Input
-                label="Contraseña"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <Input
+                  label="Contraseña"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               <div className="text-right">
                 <Link
                   to="/forgot-password"
