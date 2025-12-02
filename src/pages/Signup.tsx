@@ -5,6 +5,7 @@ import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
+import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -16,10 +17,67 @@ export default function Signup() {
     password: '',
     confirm_password: '',
   });
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (!SUPABASE_CONFIGURED) {
+      navigate('/dashboard');
+      return;
+    }
+    setError('');
+    if (formData.password !== formData.confirm_password) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+    const supabase = getSupabase()!;
+    supabase.auth.signUp({
+      email: formData.email.trim(),
+      password: formData.password.trim(),
+      options: {
+        data: {
+          is_company_signup: true,
+          company_name: formData.company_name.trim()
+        }
+      }
+    })
+      .then(async ({ data, error }) => {
+        if (error) {
+          setError(error.message || 'No se pudo crear la cuenta');
+          return;
+        }
+        try {
+          const name = formData.company_name.trim();
+          const tax_id = formData.tax_id.trim();
+          const phone = formData.phone.trim();
+
+          const { data: sessionRes } = await supabase.auth.getUser();
+          const user_id = sessionRes.user?.id || data.user?.id || null;
+
+          if (user_id) {
+            const { data: companyId, error: rpcError } = await supabase.rpc('create_company_for_new_user', {
+              p_name: name,
+              p_tax_id: tax_id,
+              p_phone: phone,
+              p_user_id: user_id
+            });
+
+            if (rpcError) {
+              throw rpcError;
+            }
+
+            if (companyId) {
+              await supabase.auth.updateUser({ data: { company_id: companyId } });
+            }
+          }
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+          console.warn('Post-signup linking failed:', errorMessage);
+          setError(errorMessage || 'Error al crear y vincular la empresa');
+          return;
+        }
+        navigate('/dashboard');
+      });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +165,9 @@ export default function Signup() {
                 Crear Cuenta
               </Button>
             </form>
+            {error && (
+              <div className="mt-4 text-center text-sm text-red-600">{error}</div>
+            )}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 ¿Ya tienes cuenta?{' '}

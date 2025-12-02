@@ -1,21 +1,74 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Building2, Eye, EyeOff } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
+import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const showVerifyNotice = new URLSearchParams(location.search).has('verifyEmail');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (!SUPABASE_CONFIGURED) {
+      navigate('/dashboard');
+      return;
+    }
+    setError('');
+    const supabase = getSupabase()!;
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setError(error.message || 'Credenciales inválidas');
+        return;
+      }
+
+      if (data.user) {
+        // 1. Check if user is platform admin
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (adminUser) {
+          navigate('/admin');
+          return;
+        }
+
+        // 2. Check if user is a Company Admin (exists in user_company)
+        const { data: userCompany } = await supabase
+          .from('user_company')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (userCompany) {
+          navigate('/dashboard');
+        } else {
+          // If not admin and not company user, they must be a participant/responsable trying to login here
+          await supabase.auth.signOut();
+          setError('Esta cuenta no tiene permisos de administrador. Por favor ingresa como Responsable.');
+        }
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(errorMessage);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,6 +95,9 @@ export default function Login() {
             <p className="text-center text-gray-600 text-sm mt-2">
               Accede a tu cuenta corporativa
             </p>
+            {showVerifyNotice && (
+              <p className="text-center text-blue-600 text-sm mt-2">Verifica tu email para acceder</p>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -54,18 +110,31 @@ export default function Login() {
                 placeholder="contacto@empresa.com"
                 required
               />
-              <Input
-                label="Contraseña"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <Input
+                  label="Contraseña"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               <div className="text-right">
                 <Link
-                  to="/login"
+                  to="/forgot-password"
                   className="text-sm text-[#0A4D8C] hover:underline"
                 >
                   ¿Olvidaste tu contraseña?
@@ -75,6 +144,9 @@ export default function Login() {
                 Iniciar Sesión
               </Button>
             </form>
+            {error && (
+              <div className="mt-4 text-center text-sm text-red-600">{error}</div>
+            )}
             <div className="mt-6 space-y-4">
               <div className="text-center">
                 <p className="text-sm text-gray-600">

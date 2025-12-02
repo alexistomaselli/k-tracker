@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante de Transferencia</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .receipt {
+            background-color: white;
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .bank-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #004481;
+            margin-bottom: 5px;
+        }
+
+        .success-icon {
+            color: #28a745;
+            font-size: 48px;
+            margin: 10px 0;
+        }
+
+        .title {
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .amount {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+        }
+
+        .details {
+            margin-bottom: 20px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .label {
+            color: #666;
+        }
+
+        .value {
+            font-weight: 500;
+            color: #333;
+            text-align: right;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 30px;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="receipt">
+        <div class="header">
+            <div class="bank-logo">BANCO DEMO</div>
+            <div class="success-icon">✓</div>
+            <div class="title">Transferencia Exitosa</div>
+            <div style="color: #666; font-size: 14px; margin-top: 5px;">01 Dic 2025 - 15:45:30</div>
+        </div>
+
+        <div class="amount">
+            S/ 50.00
+        </div>
+
+        <div class="details">
+            <div class="row">
+                <span class="label">Destinatario</span>
+                <span class="value">K-Tracker Solutions SAC</span>
+            </div>
+            <div class="row">
+                <span class="label">Banco Destino</span>
+                <span class="value">Banco Demo</span>
+            </div>
+            <div class="row">
+                <span class="label">Cuenta Destino</span>
+                <span class="value">**** 1234</span>
+            </div>
+            <div class="row">
+                <span class="label">Concepto</span>
+                <span class="value">Suscripción Plan Inicial</span>
+            </div>
+            <div class="row">
+                <span class="label">Nro. Operación</span>
+                <span class="value">123456789</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            Este es un comprobante electrónico generado para fines de prueba.<br>
+            No tiene validez fiscal real.
+        </div>
+    </div>
+</body>
+
+</html>

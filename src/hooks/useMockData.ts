@@ -18,6 +18,8 @@ import {
   Activity,
 } from '../data/mockData';
 
+export type { Project, Minute, Task, Participant, Area, Comment, Activity };
+
 export function useMockProjects() {
   const [projects] = useState<Project[]>(mockProjects);
   const [loading] = useState(false);

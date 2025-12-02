@@ -1,7 +1,7 @@
 import { HTMLAttributes } from 'react';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent' | 'draft' | 'active' | 'overdue';
+  variant?: 'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent' | 'draft' | 'active' | 'overdue' | 'secondary';
 }
 
 export default function Badge({ variant = 'active', className = '', children, ...props }: BadgeProps) {
@@ -14,6 +14,7 @@ export default function Badge({ variant = 'active', className = '', children, ..
     draft: 'bg-yellow-100 text-yellow-800',
     active: 'bg-green-100 text-green-800',
     overdue: 'bg-red-100 text-red-800',
+    secondary: 'bg-gray-100 text-gray-800',
   };
 
   return (

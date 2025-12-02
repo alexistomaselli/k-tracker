@@ -1,11 +1,39 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, Users, MessageSquare, ArrowRight } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Button from '../components/ui/Button';
 import Card, { CardContent } from '../components/ui/Card';
+import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function Landing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (SUPABASE_CONFIGURED) {
+      const supabase = getSupabase()!;
+
+      // Check initial session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log('DEBUG: Initial session check:', session ? 'Found' : 'None');
+        if (session) {
+          navigate('/dashboard');
+        }
+      });
+
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('DEBUG: Auth state change:', event, session ? 'Session exists' : 'No session');
+        if (event === 'SIGNED_IN' && session) {
+          navigate('/dashboard');
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    }
+  }, [navigate]);
+
   const features = [
     {
       icon: FileText,

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { User, Eye, EyeOff } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
+
+import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 
 export default function LoginResponsable() {
   const navigate = useNavigate();
@@ -12,9 +14,26 @@ export default function LoginResponsable() {
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!SUPABASE_CONFIGURED) {
+      navigate('/my-tasks');
+      return;
+    }
+    setError('');
+    const supabase = getSupabase()!;
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError(error.message || 'Credenciales inválidas');
+      return;
+    }
     navigate('/my-tasks');
   };
 
@@ -54,15 +73,28 @@ export default function LoginResponsable() {
                 placeholder="tu.email@ejemplo.com"
                 required
               />
-              <Input
-                label="Contraseña"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                required
-              />
+              <div className="relative">
+                <Input
+                  label="Contraseña"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               <div className="text-right">
                 <Link
                   to="/login-responsable"
@@ -75,6 +107,9 @@ export default function LoginResponsable() {
                 Iniciar Sesión
               </Button>
             </form>
+            {error && (
+              <div className="mt-4 text-center text-sm text-red-600">{error}</div>
+            )}
             <div className="mt-6 border-t pt-4 text-center">
               <p className="text-sm text-gray-600 mb-2">
                 ¿Eres administrador de empresa?

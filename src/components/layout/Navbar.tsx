@@ -2,12 +2,16 @@ import { Link } from 'react-router-dom';
 import { Menu, User, LogOut } from 'lucide-react';
 import Button from '../ui/Button';
 
+import NotificationCenter from '../notifications/NotificationCenter';
+
 interface NavbarProps {
   isAuthenticated?: boolean;
   onMenuClick?: () => void;
+  onLogout?: () => void;
+  userLabel?: string;
 }
 
-export default function Navbar({ isAuthenticated = false, onMenuClick }: NavbarProps) {
+export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout, userLabel }: NavbarProps) {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" role="navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,14 +50,19 @@ export default function Navbar({ isAuthenticated = false, onMenuClick }: NavbarP
               </>
             ) : (
               <div className="flex items-center space-x-3">
+                <NotificationCenter />
+                <Link to="/reset-password">
+                  <button
+                    className="flex items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-md"
+                    aria-label="Cambiar contraseña"
+                    title="Cambiar contraseña"
+                  >
+                    <User className="w-5 h-5 text-gray-600" />
+                    <span className="hidden sm:inline text-sm text-gray-700">{userLabel || 'Usuario'}</span>
+                  </button>
+                </Link>
                 <button
-                  className="flex items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-md"
-                  aria-label="Perfil de usuario"
-                >
-                  <User className="w-5 h-5 text-gray-600" />
-                  <span className="hidden sm:inline text-sm text-gray-700">Usuario</span>
-                </button>
-                <button
+                  onClick={onLogout}
                   className="flex items-center space-x-2 text-red-600 hover:bg-red-50 px-3 py-2 rounded-md"
                   aria-label="Cerrar sesión"
                 >

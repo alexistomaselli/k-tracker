@@ -6,12 +6,12 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import SearchInput from '../components/ui/SearchInput';
 import Select from '../components/ui/Select';
-import { useMockMinutes, useMockProjects, useMockTasks } from '../hooks/useMockData';
+import { useMinutes, useProjects, useTasks } from '../hooks/useData';
 
 export default function Minutes() {
-  const { minutes, loading } = useMockMinutes();
-  const { getProjectById } = useMockProjects();
-  const { getTasksByMinute } = useMockTasks();
+  const { minutes, loading } = useMinutes();
+  const { getProjectById } = useProjects();
+  const { getTasksByMinute } = useTasks();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -47,8 +47,8 @@ export default function Minutes() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row items-stretch gap-4 mb-6">
+            <div className="w-full sm:flex-1 sm:min-w-[420px]">
               <SearchInput
                 placeholder="Buscar actas..."
                 value={search}
@@ -89,6 +89,7 @@ export default function Minutes() {
                   {filteredMinutes.map((minute) => {
                     const project = getProjectById(minute.project_id);
                     const tasks = getTasksByMinute(minute.id);
+                    const pendingCount = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
                     return (
                       <tr key={minute.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium">Acta #{minute.minute_number}</td>
@@ -100,7 +101,10 @@ export default function Minutes() {
                             {minute.status === 'final' ? 'Final' : 'Borrador'}
                           </Badge>
                         </td>
-                        <td className="py-3 px-4">{tasks.length}</td>
+                        <td className="py-3 px-4">
+                          <span className="font-medium">{pendingCount}</span>
+                          <span className="text-gray-500">/{tasks.length}</span>
+                        </td>
                         <td className="py-3 px-4">
                           <Link to={`/minutes/${minute.id}`}>
                             <Button variant="outline" size="sm">

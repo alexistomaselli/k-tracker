@@ -4,7 +4,12 @@ export interface Company {
   tax_id: string;
   email: string;
   phone: string;
+  address?: string;
   logo_url?: string;
+  trial_days?: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  evolution_instance_name?: string;
+  evolution_api_key?: string;
 }
 
 export interface User {
@@ -24,6 +29,8 @@ export interface Participant {
   phone: string;
   active: boolean;
   user_id?: string;
+  area_id?: string;
+  password_changed?: boolean;
 }
 
 export interface Project {
@@ -51,7 +58,7 @@ export interface Minute {
   start_time: string;
   end_time: string;
   location: string;
-  status: 'draft' | 'final';
+  status: 'draft' | 'final' | 'in_progress';
   notes?: string;
 }
 
@@ -72,6 +79,7 @@ export interface Attendance {
   signed_at?: string;
   signature_url?: string;
   notes?: string;
+  status?: 'present' | 'absent' | 'late' | 'excused';
 }
 
 export interface Task {
@@ -117,7 +125,7 @@ export interface Activity {
   task_id: string;
   user_id: string;
   type: 'status_changed' | 'priority_changed' | 'assignee_changed' | 'due_date_changed' | 'comment_added' | 'comment_edited' | 'comment_deleted';
-  payload: any;
+  payload: Record<string, unknown>;
   created_at: string;
 }
 
@@ -147,6 +155,7 @@ export const mockParticipants: Participant[] = [
     phone: '+51987654321',
     active: true,
     user_id: 'u2',
+    area_id: 'ar1', // Estructuras
   },
   {
     id: 'pa2',
@@ -157,6 +166,7 @@ export const mockParticipants: Participant[] = [
     email: 'maria@example.com',
     phone: '+51987654322',
     active: true,
+    area_id: 'ar2', // Arquitectura
   },
   {
     id: 'pa3',
@@ -167,6 +177,7 @@ export const mockParticipants: Participant[] = [
     email: 'carlos@example.com',
     phone: '+51987654323',
     active: true,
+    area_id: 'ar1', // Estructuras
   },
   {
     id: 'pa4',
@@ -177,6 +188,7 @@ export const mockParticipants: Participant[] = [
     email: 'ana@example.com',
     phone: '+51987654324',
     active: true,
+    area_id: 'ar1', // Estructuras
   },
 ];
 
