@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '../hooks/useData';
 import { MessageSquare, RefreshCw, Link as LinkIcon, Unlink, Smartphone, CheckCircle, AlertCircle, Loader, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -20,7 +20,7 @@ export default function WhatsAppSettings() {
     // Actually, the instance URL is usually the same base URL.
     const EVOLUTION_API_URL = 'https://kai-pro-evolution-api.3znlkb.easypanel.host';
 
-    const fetchConnectionState = async (silent = false) => {
+    const fetchConnectionState = useCallback(async (silent = false) => {
         if (!company?.evolution_instance_name || !company?.evolution_api_key) return;
 
         try {
@@ -44,13 +44,13 @@ export default function WhatsAppSettings() {
         } finally {
             if (!silent) setLoading(false);
         }
-    };
+    }, [company, EVOLUTION_API_URL]);
 
     useEffect(() => {
         if (company?.evolution_instance_name) {
             fetchConnectionState();
         }
-    }, [company]);
+    }, [company, fetchConnectionState]);
 
     // Poll for status when connecting and QR is visible
     useEffect(() => {
@@ -61,7 +61,7 @@ export default function WhatsAppSettings() {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [qrCode, connectionState]);
+    }, [qrCode, connectionState, fetchConnectionState]);
 
     const handleConnect = async () => {
         if (!company?.evolution_instance_name || !company?.evolution_api_key) return;
