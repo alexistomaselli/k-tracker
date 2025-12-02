@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
 import { useMinutes, useProjects, useTasks, useParticipants, useAreas, useTaskActions, useParticipantActions, useProjectResources, useMinuteActions, useAgenda, useAgendaActions, useAttendance, useAttendanceActions } from '../hooks/useData';
+import { Task } from '../hooks/useMockData';
 import TaskModal from '../components/tasks/TaskModal';
 import MinuteModal from '../components/minutes/MinuteModal';
 import Input from '../components/ui/Input';
@@ -13,13 +14,20 @@ import Select from '../components/ui/Select';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { useToast } from '../context/ToastContext';
 
+interface NewTask extends Partial<Task> {
+  id: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
 export default function MinuteDetail() {
   const { minuteId } = useParams<{ minuteId: string }>();
   const toast = useToast();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showEditMinuteModal, setShowEditMinuteModal] = useState(false);
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
-  const [taskToEdit, setTaskToEdit] = useState<any>(null);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState({ description: '', notes: '' });
 
@@ -33,10 +41,10 @@ export default function MinuteDetail() {
   const { areas } = useAreas();
   const { createTask, deleteTask } = useTaskActions();
   const { updateParticipant } = useParticipantActions();
-  const { createMinute, updateMinute, dissociatePendingTasks, associateTasksToMinute } = useMinuteActions();
+  const { updateMinute, dissociatePendingTasks, associateTasksToMinute } = useMinuteActions();
   const { markAttendance } = useAttendanceActions();
 
-  const [newTasks, setNewTasks] = useState<any[]>([]);
+  const [newTasks, setNewTasks] = useState<NewTask[]>([]);
 
 
   const minute = getMinuteById(minuteId!);
@@ -51,7 +59,7 @@ export default function MinuteDetail() {
     setTaskToEdit(null);
   };
 
-  const handleEditTask = (task: any) => {
+  const handleEditTask = (task: Task) => {
     setTaskToEdit(task);
     setShowTaskModal(true);
   };
@@ -110,7 +118,7 @@ export default function MinuteDetail() {
     setNewTasks(updated);
   };
 
-  const handleUpdateNewTask = (index: number, field: string, value: any) => {
+  const handleUpdateNewTask = (index: number, field: string, value: string) => {
     const updated = [...newTasks];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -127,14 +135,16 @@ export default function MinuteDetail() {
     // If area is manually selected for a participant without area, update the participant
     if (field === 'area_id' && value) {
       const currentAssigneeId = updated[index].assignee_id;
-      const participant = getParticipantById(currentAssigneeId);
+      if (currentAssigneeId) {
+        const participant = getParticipantById(currentAssigneeId);
 
-      if (participant && !participant.area_id) {
-        updateParticipant(currentAssigneeId, { area_id: value })
-          .then(() => {
-            reloadParticipants();
-          })
-          .catch(err => console.error('Error updating participant area:', err));
+        if (participant && !participant.area_id) {
+          updateParticipant(currentAssigneeId, { area_id: value })
+            .then(() => {
+              reloadParticipants();
+            })
+            .catch(err => console.error('Error updating participant area:', err));
+        }
       }
     }
 
@@ -156,7 +166,7 @@ export default function MinuteDetail() {
     }
 
     try {
-      await updateMinute(minute.id, { status: newStatus });
+      await updateMinute(minute.id, { status: newStatus as 'draft' | 'in_progress' | 'final' });
       window.location.reload();
     } catch (error) {
       console.error('Error updating minute status:', error);
@@ -199,9 +209,10 @@ export default function MinuteDetail() {
       await reloadTasks();
       setNewTasks([]);
       toast.success('Tareas guardadas correctamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving batch tasks:', error);
-      toast.error(`Error al guardar las tareas: ${error.message || 'Intenta de nuevo'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Intenta de nuevo';
+      toast.error(`Error al guardar las tareas: ${errorMessage}`);
     }
   };
 
@@ -650,7 +661,7 @@ export default function MinuteDetail() {
                               badge: area ? { text: area.name, color: area.color } : undefined
                             };
                           })}
-                          value={task.assignee_id}
+                          value={task.assignee_id || ''}
                           onChange={(value) => handleUpdateNewTask(index, 'assignee_id', value)}
                           placeholder="Responsable"
                           className="w-full"
@@ -659,7 +670,7 @@ export default function MinuteDetail() {
                       <td className="py-2 px-2">
                         <Input
                           type="date"
-                          value={task.due_date}
+                          value={task.due_date || ''}
                           onChange={(e) => handleUpdateNewTask(index, 'due_date', e.target.value)}
                           className="bg-white border-blue-200"
                         />

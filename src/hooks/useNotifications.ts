@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
 import { useCurrentUser } from './useData';
 
@@ -19,7 +19,7 @@ export function useNotifications() {
     const [loading, setLoading] = useState(true);
     const { participant } = useCurrentUser();
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!SUPABASE_CONFIGURED || !participant) return;
         const supabase = getSupabase()!;
 
@@ -37,7 +37,7 @@ export function useNotifications() {
             setUnreadCount(data?.filter(n => !n.read).length || 0);
         }
         setLoading(false);
-    };
+    }, [participant]);
 
     const markAsRead = async (id: string) => {
         if (!SUPABASE_CONFIGURED) return;
@@ -99,7 +99,7 @@ export function useNotifications() {
                 subscription.unsubscribe();
             };
         }
-    }, [participant]);
+    }, [participant, fetchNotifications]);
 
     return {
         notifications,

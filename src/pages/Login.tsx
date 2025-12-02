@@ -65,8 +65,9 @@ export default function Login() {
           setError('Esta cuenta no tiene permisos de administrador. Por favor ingresa como Responsable.');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(errorMessage);
     }
   };
 

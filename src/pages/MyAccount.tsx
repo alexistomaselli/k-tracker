@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Link } from 'react-router-dom';
 import { User, Mail, Building, Shield, Key } from 'lucide-react';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';

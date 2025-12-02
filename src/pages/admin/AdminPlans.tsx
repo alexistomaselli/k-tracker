@@ -6,11 +6,24 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useToast } from '../../context/ToastContext';
 
+interface Plan {
+    id: string;
+    name: string;
+    code: string;
+    description: string;
+    price: number;
+    currency: string;
+    billing_cycle: string;
+    features: string[];
+    limits: Record<string, number>;
+    active: boolean;
+}
+
 export default function AdminPlans() {
-    const [plans, setPlans] = useState<any[]>([]);
+    const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [editingPlan, setEditingPlan] = useState<any>(null);
+    const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const toast = useToast();
 
     const [formData, setFormData] = useState({
@@ -58,13 +71,13 @@ export default function AdminPlans() {
 
             try {
                 featuresJson = JSON.parse(formData.features || '[]');
-            } catch (e) {
+            } catch {
                 throw new Error('Formato de Features inválido (debe ser un array JSON)');
             }
 
             try {
                 limitsJson = JSON.parse(formData.limits || '{}');
-            } catch (e) {
+            } catch {
                 throw new Error('Formato de Límites inválido (debe ser un objeto JSON)');
             }
 
@@ -99,8 +112,9 @@ export default function AdminPlans() {
             setEditingPlan(null);
             resetForm();
             fetchPlans();
-        } catch (error: any) {
-            toast.error('Error al guardar plan: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al guardar plan: ' + errorMessage);
         }
     };
 
@@ -117,12 +131,13 @@ export default function AdminPlans() {
             if (error) throw error;
             toast.success('Plan eliminado');
             fetchPlans();
-        } catch (error: any) {
-            toast.error('Error al eliminar: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al eliminar: ' + errorMessage);
         }
     };
 
-    const openEdit = (plan: any) => {
+    const openEdit = (plan: Plan) => {
         setEditingPlan(plan);
         setFormData({
             name: plan.name,

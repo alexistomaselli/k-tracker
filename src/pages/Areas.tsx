@@ -12,7 +12,7 @@ export default function Areas() {
     const { areas, loading, error, reloadAreas } = useAreas();
     const { createArea, updateArea, deleteArea, createDefaultAreas } = useAreaActions();
 
-    const { addToast } = useToast();
+    const toast = useToast();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSuggestedModalOpen, setIsSuggestedModalOpen] = useState(false);
@@ -35,10 +35,10 @@ export default function Areas() {
                 setActionLoading(true);
                 await deleteArea(id);
                 await reloadAreas();
-                addToast('Área eliminada correctamente', 'success');
+                toast.success('Área eliminada correctamente');
             } catch (err) {
                 console.error('Error deleting area:', err);
-                addToast('Error al eliminar el área', 'error');
+                toast.error('Error al eliminar el área');
             } finally {
                 setActionLoading(false);
             }
@@ -49,15 +49,15 @@ export default function Areas() {
         try {
             if (areaToEdit) {
                 await updateArea(areaToEdit.id, name, color);
-                addToast('Área actualizada correctamente', 'success');
+                toast.success('Área actualizada correctamente');
             } else {
                 await createArea(name, color);
-                addToast('Área creada correctamente', 'success');
+                toast.success('Área creada correctamente');
             }
             await reloadAreas();
         } catch (err) {
             console.error('Error saving area:', err);
-            addToast('Error al guardar el área', 'error');
+            toast.error('Error al guardar el área');
             throw err;
         }
     };
@@ -66,10 +66,10 @@ export default function Areas() {
         try {
             await createDefaultAreas(selectedAreas);
             await reloadAreas();
-            addToast('Áreas sugeridas creadas correctamente', 'success');
+            toast.success('Áreas sugeridas creadas correctamente');
         } catch (err) {
             console.error('Error creating default areas:', err);
-            addToast('Error al crear áreas sugeridas', 'error');
+            toast.error('Error al crear áreas sugeridas');
             throw err;
         }
     };

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Minute } from '../../data/mockData';
+import { useMinuteActions } from '../../hooks/useData';
 
 interface MinuteModalProps {
     isOpen: boolean;
@@ -31,6 +32,7 @@ export default function MinuteModal({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const { createMinute, updateMinute } = useMinuteActions();
 
     useEffect(() => {
         if (isOpen) {
@@ -62,9 +64,6 @@ export default function MinuteModal({
         setError('');
 
         try {
-            const { useMinuteActions } = await import('../../hooks/useData');
-            const { createMinute, updateMinute } = useMinuteActions();
-
             if (minuteToEdit) {
                 await updateMinute(minuteToEdit.id, {
                     meeting_date: formData.meetingDate,
@@ -72,7 +71,7 @@ export default function MinuteModal({
                     start_time: formData.startTime || undefined,
                     end_time: formData.endTime || undefined,
                     notes: formData.notes || undefined,
-                    status: formData.status,
+                    status: formData.status as 'draft' | 'in_progress' | 'final',
                 });
                 onSuccess();
             } else {
@@ -89,8 +88,9 @@ export default function MinuteModal({
                 }
             }
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar el acta');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Error al guardar el acta';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

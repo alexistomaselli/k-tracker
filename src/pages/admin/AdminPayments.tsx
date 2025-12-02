@@ -5,8 +5,31 @@ import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import { useToast } from '../../context/ToastContext';
 
+interface Payment {
+    id: string;
+    amount: number;
+    status: 'pending' | 'approved' | 'rejected';
+    created_at: string;
+    proof_url?: string;
+    subscriptions: {
+        id: string;
+        company_id: string;
+        plan_id: string;
+        company: {
+            name: string;
+        };
+        plans: {
+            id: string;
+            name: string;
+            billing_cycle: string;
+            price: number;
+            currency: string;
+        };
+    };
+}
+
 export default function AdminPayments() {
-    const [payments, setPayments] = useState<any[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
     const [processingId, setProcessingId] = useState<string | null>(null);
@@ -241,9 +264,10 @@ export default function AdminPayments() {
             );
 
             await fetchPayments(); // Refresh list to be sure
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating payment:', error);
-            toast.error('Error al actualizar pago: ' + error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al actualizar pago: ' + errorMessage);
         } finally {
             setProcessingId(null);
         }

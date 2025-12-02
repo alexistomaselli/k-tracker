@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Participant, Area } from '../../data/mockData';
+import { Participant } from '../../data/mockData';
 import { useAreas } from '../../hooks/useData';
 
 interface ParticipantModalProps {

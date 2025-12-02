@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { useMinuteActions } from '../../hooks/useData';
 
 interface CreateMinuteModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export default function CreateMinuteModal({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const { createMinute } = useMinuteActions();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,9 +36,6 @@ export default function CreateMinuteModal({
         setError('');
 
         try {
-            const { useMinuteActions } = await import('../../hooks/useData');
-            const { createMinute } = useMinuteActions();
-
             const result = await createMinute(
                 projectId,
                 formData.meetingDate,
@@ -56,8 +55,9 @@ export default function CreateMinuteModal({
                     notes: '',
                 });
             }
-        } catch (err: any) {
-            setError(err.message || 'Error al crear el acta');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Error al crear el acta';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

@@ -1,0 +1,216 @@
+{
+    "name": "K-Tracker: WhatsApp AI Agent",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "whatsapp-webhook",
+                "options": {}
+            },
+            "name": "Evolution API Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const remoteJid = items[0].json.data.key.remoteJid;\nconst phone = remoteJid.split('@')[0];\nreturn { json: { phone, remoteJid, message: items[0].json.data.message.conversation || items[0].json.data.message.extendedTextMessage.text } };"
+            },
+            "name": "Extract Phone & Message",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                300,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "tableId": "participants",
+                "limit": 1,
+                "filters": {
+                    "conditions": [
+                        {
+                            "key": "phone",
+                            "value": "={{$json.phone}}",
+                            "operator": "eq"
+                        }
+                    ]
+                }
+            },
+            "name": "Find User in Supabase",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{$json.id}}",
+                            "operator": "notEmpty"
+                        }
+                    ]
+                }
+            },
+            "name": "User Found?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                700,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "systemMessage": "You are a helpful assistant for K-Tracker. You help users manage their tasks. \nCurrent User: {{$json.first_name}} {{$json.last_name}}\nUser ID: {{$json.user_id}}\nCompany ID: {{$json.company_id}}"
+                }
+            },
+            "name": "AI Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1,
+            "position": [
+                900,
+                200
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "OpenAI account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://evolution-api:8080/message/sendText/{{$node[\"Find User in Supabase\"].json.company_evolution_instance_name}}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{$node[\"Extract Phone & Message\"].json.remoteJid}}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{$json.output}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Send WhatsApp Reply",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                1100,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://evolution-api:8080/message/sendText/default",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{$node[\"Extract Phone & Message\"].json.remoteJid}}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "Lo siento, tu número no está registrado en K-Tracker. Contacta a tu administrador."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Send Unauthorized Reply",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                900,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Evolution API Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Phone & Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Phone & Message": {
+            "main": [
+                [
+                    {
+                        "node": "Find User in Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Find User in Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "User Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "User Found?": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Send Unauthorized Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send WhatsApp Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Users, Mail, Phone, Briefcase } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, Edit2, Trash2, Mail, Phone, Briefcase } from 'lucide-react';
 import { useParticipants, useParticipantActions, useAreas } from '../hooks/useData';
 import { Participant } from '../data/mockData';
 import ParticipantModal from '../components/hr/ParticipantModal';
@@ -55,7 +55,7 @@ export default function HumanResources() {
                 await updateParticipant(participantToEdit.id, data);
                 toast.success('Participante actualizado correctamente');
             } else {
-                const result = await createParticipant(data as any);
+                const result = await createParticipant(data as Omit<Participant, 'id' | 'created_at'>);
                 if (result && result.inviteSent) {
                     toast.success('Participante creado y correo de invitación enviado');
                 } else {
@@ -64,9 +64,10 @@ export default function HumanResources() {
             }
             await reloadParticipants();
             setIsModalOpen(false);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error saving participant:', err);
-            toast.error(`Error: ${err.message || 'Error desconocido'}`);
+            const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+            toast.error(`Error: ${errorMessage}`);
         } finally {
             setActionLoading(false);
         }

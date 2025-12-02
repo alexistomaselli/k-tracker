@@ -34,9 +34,9 @@ export default function TaskDetail() {
   const daysLeft = task ? calculateDaysLeft(task.due_date) : 0;
   const overdue = task ? isTaskOverdue(task) : false;
 
-  const [statusSel, setStatusSel] = useState<'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent'>(task?.status as any || 'pending');
+  const [statusSel, setStatusSel] = useState<'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent'>(task?.status as 'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent' || 'pending');
   const [assigneeSel, setAssigneeSel] = useState(task?.assignee_id || '');
-  const [prioritySel, setPrioritySel] = useState(task?.priority || 'medium');
+  const [prioritySel, setPrioritySel] = useState<'low' | 'medium' | 'high' | 'critical'>(task?.priority || 'medium');
   const [dueDateSel, setDueDateSel] = useState(task?.due_date ? task.due_date.split('T')[0] : '');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionSel, setDescriptionSel] = useState(task?.description || '');
@@ -44,7 +44,7 @@ export default function TaskDetail() {
   // Update local state when task data loads
   useEffect(() => {
     if (task) {
-      setStatusSel(task.status as any);
+      setStatusSel(task.status as 'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent');
       setAssigneeSel(task.assignee_id || '');
       setPrioritySel(task.priority);
       setDueDateSel(task.due_date ? task.due_date.split('T')[0] : '');
@@ -183,16 +183,16 @@ export default function TaskDetail() {
             <div className="mt-1">
               {(item as Activity).type === 'status_changed' && (
                 <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-md border border-gray-100 inline-flex">
-                  <Badge variant={(item as Activity).payload.from}>{(item as Activity).payload.from}</Badge>
+                  <Badge variant={(item as Activity).payload.from as any}>{String((item as Activity).payload.from)}</Badge>
                   <ArrowRight className="w-3 h-3 text-gray-400" />
-                  <Badge variant={(item as Activity).payload.to}>{(item as Activity).payload.to}</Badge>
+                  <Badge variant={(item as Activity).payload.to as any}>{String((item as Activity).payload.to)}</Badge>
                 </div>
               )}
               {(item as Activity).type === 'priority_changed' && (
                 <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-md border border-gray-100 inline-flex">
-                  <Chip priority={(item as Activity).payload.from}>{(item as Activity).payload.from}</Chip>
+                  <Chip priority={(item as Activity).payload.from as any}>{String((item as Activity).payload.from)}</Chip>
                   <ArrowRight className="w-3 h-3 text-gray-400" />
-                  <Chip priority={(item as Activity).payload.to}>{(item as Activity).payload.to}</Chip>
+                  <Chip priority={(item as Activity).payload.to as any}>{String((item as Activity).payload.to)}</Chip>
                 </div>
               )}
             </div>
@@ -328,7 +328,7 @@ export default function TaskDetail() {
               <select
                 value={statusSel}
                 onChange={async (e) => {
-                  const val = (e.target as HTMLSelectElement).value as any;
+                  const val = (e.target as HTMLSelectElement).value as 'pending' | 'in_progress' | 'completed' | 'canceled' | 'permanent';
                   setStatusSel(val);
                   await setTaskStatus(task.id, val);
                   await reloadFeed();
@@ -370,7 +370,7 @@ export default function TaskDetail() {
               <select
                 value={prioritySel}
                 onChange={async (e) => {
-                  const val = e.target.value as any;
+                  const val = e.target.value as 'low' | 'medium' | 'high' | 'critical';
                   setPrioritySel(val);
                   await setTaskPriority(task.id, val);
                   await reloadFeed();

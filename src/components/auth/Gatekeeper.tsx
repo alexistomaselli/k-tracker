@@ -3,7 +3,6 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useData';
 import { getSupabase } from '../../lib/supabase';
 import PendingApproval from '../../pages/PendingApproval';
-import SelectPlan from '../../pages/SelectPlan';
 
 export default function Gatekeeper({ children }: { children: React.ReactNode }) {
     const { company: initialCompany, loading, approvalStatus, isPlatformAdmin } = useCurrentUser();

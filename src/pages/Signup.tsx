@@ -47,7 +47,6 @@ export default function Signup() {
           return;
         }
         try {
-          const email = formData.email.trim();
           const name = formData.company_name.trim();
           const tax_id = formData.tax_id.trim();
           const phone = formData.phone.trim();
@@ -71,9 +70,10 @@ export default function Signup() {
               await supabase.auth.updateUser({ data: { company_id: companyId } });
             }
           }
-        } catch (e: any) {
-          console.warn('Post-signup linking failed:', e?.message || e);
-          setError(e?.message || 'Error al crear y vincular la empresa');
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+          console.warn('Post-signup linking failed:', errorMessage);
+          setError(errorMessage || 'Error al crear y vincular la empresa');
           return;
         }
         navigate('/dashboard');

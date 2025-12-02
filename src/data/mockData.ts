@@ -8,6 +8,8 @@ export interface Company {
   logo_url?: string;
   trial_days?: number;
   approval_status?: 'pending' | 'approved' | 'rejected';
+  evolution_instance_name?: string;
+  evolution_api_key?: string;
 }
 
 export interface User {
@@ -77,6 +79,7 @@ export interface Attendance {
   signed_at?: string;
   signature_url?: string;
   notes?: string;
+  status?: 'present' | 'absent' | 'late' | 'excused';
 }
 
 export interface Task {
@@ -122,7 +125,7 @@ export interface Activity {
   task_id: string;
   user_id: string;
   type: 'status_changed' | 'priority_changed' | 'assignee_changed' | 'due_date_changed' | 'comment_added' | 'comment_edited' | 'comment_deleted';
-  payload: any;
+  payload: Record<string, unknown>;
   created_at: string;
 }
 

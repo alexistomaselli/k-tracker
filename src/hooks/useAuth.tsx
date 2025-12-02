@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, ReactNode } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import { Navigate } from 'react-router-dom'
+import { Session, User } from '@supabase/supabase-js'
 
 export function useAuth() {
   const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const STRICT = (import.meta.env.VITE_REQUIRE_AUTH as string | undefined) === 'true'
   const VERIFIED_REQUIRED = (import.meta.env.VITE_REQUIRE_EMAIL_VERIFIED as string | undefined) === 'true'
 
@@ -43,15 +44,15 @@ export function useAuth() {
 
 import { useCurrentUser } from './useData'
 
-export function RequireAuth({ children }: { children: any }) {
+export function RequireAuth({ children }: { children: ReactNode }) {
   const { loading, isAuthenticated, verified, requireEmailVerified } = useAuth()
   if (loading) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (requireEmailVerified && !verified) return <Navigate to="/login?verifyEmail=true" replace />
-  return children
+  return <>{children}</>
 }
 
-export function RequireAdmin({ children }: { children: any }) {
+export function RequireAdmin({ children }: { children: ReactNode }) {
   const { isAdmin, loading } = useCurrentUser()
 
   if (loading) return <div className="p-8 text-center text-gray-500">Cargando...</div>
@@ -61,5 +62,5 @@ export function RequireAdmin({ children }: { children: any }) {
     return <Navigate to="/dashboard" replace />
   }
 
-  return children
+  return <>{children}</>
 }

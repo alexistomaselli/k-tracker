@@ -32,7 +32,7 @@ export default function AppLayout() {
         isAuthenticated={isAuthenticated}
         onMenuClick={() => setSidebarOpen(true)}
         onLogout={handleLogout}
-        userLabel={user?.email || (user?.user_metadata as any)?.name || 'Usuario'}
+        userLabel={user?.email || (user?.user_metadata as { name?: string })?.name || 'Usuario'}
       />
       <div className="flex flex-1">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

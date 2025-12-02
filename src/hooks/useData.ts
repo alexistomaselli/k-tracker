@@ -1,16 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import { Project, Minute, Task, Participant, Area } from '../data/mockData'
-import { useMockProjects, useMockMinutes, useMockTasks, useMockTaskFeed, useMockParticipants, useMockAreas } from './useMockData'
 
 export function useProjects() {
-  const mock = useMockProjects()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     setError(null)
@@ -21,11 +19,11 @@ export function useProjects() {
     }
     setProjects((data as Project[]) ?? [])
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const getProjectById = (id: string) => projects.find((p) => p.id === id)
 
@@ -35,7 +33,12 @@ export function useProjects() {
       const { data: sessionRes } = await supabase!.auth.getSession()
       const userObj = sessionRes?.session?.user
       const uid = userObj?.id
-      const claimCompany = (userObj?.user_metadata as any)?.company_id || (userObj?.user_metadata as any)?.claims?.company_id || (userObj as any)?.app_metadata?.claims?.company_id || null
+
+      const userMetadata = userObj?.user_metadata as { company_id?: string; claims?: { company_id?: string } } | undefined;
+      const appMetadata = userObj?.app_metadata as { claims?: { company_id?: string } } | undefined;
+
+      const claimCompany = userMetadata?.company_id || userMetadata?.claims?.company_id || appMetadata?.claims?.company_id || null
+
       if (!uid) throw new Error('Usuario no autenticado')
       let companyId: string | null = null
       if (claimCompany) companyId = claimCompany as string
@@ -73,12 +76,11 @@ export function useProjects() {
 }
 
 export function useMinutes() {
-  const mock = useMockMinutes()
   const [minutes, setMinutes] = useState<Minute[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     setError(null)
@@ -89,11 +91,11 @@ export function useMinutes() {
     }
     setMinutes((data as Minute[]) ?? [])
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const getMinuteById = (id: string) => minutes.find((m) => m.id === id)
   const getMinutesByProject = (projectId: string) => minutes.filter((m) => m.project_id === projectId)
@@ -106,12 +108,11 @@ export function useMinutes() {
 }
 
 export function useTasks() {
-  const mock = useMockTasks()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     setError(null)
@@ -122,11 +123,11 @@ export function useTasks() {
     }
     setTasks((data as Task[]) ?? [])
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const getTaskById = (id: string) => tasks.find((t) => t.id === id)
   const getTasksByProject = (projectId: string) => tasks.filter((t) => t.project_id === projectId)
@@ -142,7 +143,7 @@ export function useTasks() {
 
 
 export function useAgenda(minuteId: string) {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(false)
   useEffect(() => {
     async function load() {
@@ -151,7 +152,7 @@ export function useAgenda(minuteId: string) {
       setLoading(true)
       const supabase = getSupabase()
       const { data } = await supabase!.from('minute_agenda_items').select('*').eq('minute_id', minuteId).order('order', { ascending: true })
-      setItems(data ?? [])
+      setItems((data as AgendaItem[]) ?? [])
       setLoading(false)
     }
     load()
@@ -160,7 +161,7 @@ export function useAgenda(minuteId: string) {
     agendaItems: items, loading, reloadAgenda: () => {
       const supabase = getSupabase()
       if (!minuteId || !supabase) return
-      supabase.from('minute_agenda_items').select('*').eq('minute_id', minuteId).order('order', { ascending: true }).then(({ data }) => setItems(data ?? []))
+      supabase.from('minute_agenda_items').select('*').eq('minute_id', minuteId).order('order', { ascending: true }).then(({ data }) => setItems((data as AgendaItem[]) ?? []))
     }
   }
 }
@@ -210,22 +211,22 @@ export function useAgendaActions() {
 }
 
 export function useAttendance(minuteId: string) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!minuteId) return
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     const supabase = getSupabase()
     const { data } = await supabase!.from('minute_attendance').select('*').eq('minute_id', minuteId)
-    setRows(data ?? [])
+    setRows((data as Attendance[]) ?? [])
     setLoading(false)
-  }
+  }, [minuteId])
 
   useEffect(() => {
     load()
-  }, [minuteId])
+  }, [load])
 
   return { attendance: rows, loading, reloadAttendance: load }
 }
@@ -262,42 +263,53 @@ export function useAttendanceActions() {
   return { markAttendance }
 }
 
-export function useTaskFeed(taskId: string) {
-  const mock = useMockTaskFeed(taskId)
-  const [feed, setFeed] = useState<any[]>(mock.feed)
+import { AgendaItem, Attendance, Comment, Activity } from '../data/mockData';
 
-  async function load() {
+export function useTaskFeed(taskId: string) {
+  const [feed, setFeed] = useState<(Comment | Activity)[]>([])
+
+  const load = useCallback(async () => {
     if (!taskId) return
     if (!SUPABASE_CONFIGURED) return
     const supabase = getSupabase()
     const { data: comments } = await supabase!.from('task_comments').select('*').eq('task_id', taskId)
     const { data: activity } = await supabase!.from('task_activity').select('*').eq('task_id', taskId)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mappedComments = (comments ?? []).map((c: any) => ({
       id: c.id,
+      company_id: c.company_id, // Ensure these fields exist or are optional in interface
       task_id: c.task_id,
       user_id: c.user_id,
       content: c.content,
+      internal: c.internal || false,
       attachments: c.attachments ?? [],
       edited: !!c.edited,
       created_at: c.created_at,
-    }))
+    })) as Comment[]
+
+
     const mappedActivity = (activity ?? [])
-      .filter((a: any) => a.type !== 'comment_added') // Filter out comment_added to avoid duplication with actual comments
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((a: any) => a.type !== 'comment_added')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((a: any) => ({
         id: a.id,
+        company_id: a.company_id,
         task_id: a.task_id,
         user_id: a.user_id,
         type: a.type,
         payload: a.payload ?? {},
         created_at: a.created_at,
-      }))
-    const combined = [...mappedComments, ...mappedActivity].sort((x: any, y: any) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime())
+      })) as Activity[]
+
+    const combined = [...mappedComments, ...mappedActivity].sort((x, y) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime())
     setFeed(combined)
-  }
+  }, [taskId])
 
   useEffect(() => {
     load()
-  }, [taskId])
+  }, [load])
   return { feed, reloadFeed: load }
 }
 
@@ -575,12 +587,11 @@ export function useTaskActions() {
   return { setTaskStatus, reassignTask, setTaskPriority, addTaskComment, createTask, updateTask, deleteTask, uploadTaskAttachment }
 }
 export function useParticipants() {
-  const mock = useMockParticipants()
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     setError(null)
@@ -591,11 +602,11 @@ export function useParticipants() {
     }
     setParticipants((data as Participant[]) ?? [])
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   async function reloadParticipants() {
     await load()
@@ -625,7 +636,7 @@ export function useParticipantActions() {
 
     if (!userObj?.id) throw new Error('Usuario no autenticado')
 
-    let companyId = (userObj?.user_metadata as any)?.company_id
+    let companyId = (userObj?.user_metadata as { company_id?: string })?.company_id
 
     if (!companyId) {
       const vc = await supabase!.from('user_company').select('company_id').eq('user_id', userObj.id).limit(1).single()
@@ -743,12 +754,11 @@ export function useParticipantActions() {
 }
 
 export function useAreas() {
-  const mock = useMockAreas()
   const [areas, setAreas] = useState<Area[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
     const supabase = getSupabase()
@@ -758,11 +768,11 @@ export function useAreas() {
     }
     setAreas((data as Area[]) ?? [])
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   async function reloadAreas() {
     await load()
@@ -823,7 +833,7 @@ export function useAreaActions() {
 
     if (!userObj?.id) throw new Error('Usuario no autenticado')
 
-    let companyId = (userObj?.user_metadata as any)?.company_id
+    let companyId = (userObj?.user_metadata as { company_id?: string })?.company_id
 
     if (!companyId) {
       const vc = await supabase!.from('user_company').select('company_id').eq('user_id', userObj.id).limit(1).single()
@@ -869,10 +879,11 @@ export function useCompany() {
   return { updateCompany }
 }
 
+import { User } from '@supabase/supabase-js';
 import { Company } from '../data/mockData';
 
 export function useCurrentUser() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [participant, setParticipant] = useState<Participant | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
@@ -950,15 +961,12 @@ export function useCurrentUser() {
 }
 
 
-
-
-
 export function useProjectResources(projectId: string) {
   const [resources, setResources] = useState<Participant[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!projectId) return
     if (!SUPABASE_CONFIGURED) return
     setLoading(true)
@@ -976,14 +984,15 @@ export function useProjectResources(projectId: string) {
     }
 
     // Flatten the result to return just the participant objects
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mappedResources = (data || []).map((item: any) => item.participants).filter(Boolean) as Participant[]
     setResources(mappedResources)
     setLoading(false)
-  }
+  }, [projectId])
 
   useEffect(() => {
     load()
-  }, [projectId])
+  }, [load])
 
   async function addResource(participantId: string, role?: string) {
     if (!SUPABASE_CONFIGURED) return

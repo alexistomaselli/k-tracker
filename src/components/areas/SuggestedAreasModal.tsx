@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 interface SuggestedAreasModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => Promise<void>;
+    onConfirm: (areas: { name: string; color: string }[]) => Promise<void>;
 }
 
 const SUGGESTED_AREAS = [

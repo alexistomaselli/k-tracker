@@ -26,6 +26,7 @@ import AdminCompanies from './pages/admin/AdminCompanies';
 import AdminPlans from './pages/admin/AdminPlans';
 import AdminPayments from './pages/admin/AdminPayments';
 import AdminBankAccounts from './pages/admin/AdminBankAccounts';
+import WhatsAppSettings from './pages/WhatsAppSettings';
 
 import SelectPlan from './pages/SelectPlan';
 
@@ -59,6 +60,7 @@ function App() {
             <Route path="/my-account" element={<MyAccount />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/select-plan" element={<SelectPlan />} />
+            <Route path="/whatsapp" element={<WhatsAppSettings />} />
           </Route>
 
           {/* KAI PRO Admin Routes */}

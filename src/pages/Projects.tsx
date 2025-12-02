@@ -26,7 +26,7 @@ export default function Projects() {
       d.setMonth(d.getMonth() + 1);
       return d.toISOString().slice(0, 10);
     })(),
-    budget: '' as any,
+    budget: '' as string | number,
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -64,7 +64,7 @@ export default function Projects() {
       const payload = {
         name: form.name.trim(),
         code: form.code.trim(),
-        status: form.status as any,
+        status: form.status as 'active' | 'completed' | 'on_hold',
         start_date: form.start_date,
         estimated_end_date: form.estimated_end_date,
         budget: form.budget ? Number(form.budget) : undefined,
@@ -72,8 +72,9 @@ export default function Projects() {
       const created = await createProject(payload);
       setIsOpen(false);
       navigate(`/projects/${created.id}`);
-    } catch (err: any) {
-      setSubmitError(err.message || 'Error al crear proyecto');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear proyecto';
+      setSubmitError(errorMessage);
     } finally {
       setSubmitting(false);
     }

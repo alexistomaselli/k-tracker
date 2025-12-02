@@ -6,11 +6,26 @@ import Badge from '../../components/ui/Badge';
 import { useToast } from '../../context/ToastContext';
 import Button from '../../components/ui/Button';
 
+interface Company {
+    id: string;
+    name: string;
+    email: string;
+    approval_status: 'pending' | 'approved' | 'rejected';
+    trial_days: number;
+    created_at: string;
+    subscriptions?: {
+        status: string;
+        plans?: {
+            name: string;
+        };
+    }[];
+}
+
 export default function AdminCompanies() {
-    const [companies, setCompanies] = useState<any[]>([]);
+    const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingTrial, setEditingTrial] = useState<any>(null);
+    const [editingTrial, setEditingTrial] = useState<Company | null>(null);
     const [trialDaysInput, setTrialDaysInput] = useState('');
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -72,8 +87,9 @@ export default function AdminCompanies() {
             toast.success(`Empresa ${status === 'approved' ? 'aprobada' : 'rechazada'} correctamente`);
             setOpenMenuId(null);
             fetchCompanies();
-        } catch (error: any) {
-            toast.error('Error al actualizar estado: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al actualizar estado: ' + errorMessage);
         }
     };
 
@@ -93,8 +109,9 @@ export default function AdminCompanies() {
             setEditingTrial(null);
             setOpenMenuId(null);
             fetchCompanies();
-        } catch (error: any) {
-            toast.error('Error al actualizar días: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al actualizar días: ' + errorMessage);
         }
     };
 

@@ -5,11 +5,23 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../context/ToastContext';
 
+interface BankAccount {
+    id: string;
+    bank_name: string;
+    holder_name: string;
+    account_number: string;
+    cbu?: string;
+    alias?: string;
+    account_type: string;
+    currency: string;
+    created_at: string;
+}
+
 export default function AdminBankAccounts() {
-    const [accounts, setAccounts] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [editingAccount, setEditingAccount] = useState<any>(null);
+    const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
     const toast = useToast();
 
     const [formData, setFormData] = useState({
@@ -68,8 +80,9 @@ export default function AdminBankAccounts() {
             setEditingAccount(null);
             resetForm();
             fetchAccounts();
-        } catch (error: any) {
-            toast.error('Error al guardar cuenta: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al guardar cuenta: ' + errorMessage);
         }
     };
 
@@ -86,12 +99,13 @@ export default function AdminBankAccounts() {
             if (error) throw error;
             toast.success('Cuenta eliminada');
             fetchAccounts();
-        } catch (error: any) {
-            toast.error('Error al eliminar: ' + error.message);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al eliminar: ' + errorMessage);
         }
     };
 
-    const openEdit = (account: any) => {
+    const openEdit = (account: BankAccount) => {
         setEditingAccount(account);
         setFormData({
             bank_name: account.bank_name,

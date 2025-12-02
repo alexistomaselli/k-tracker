@@ -1,0 +1,107 @@
+{
+    "name": "K-Tracker: Company Registration & Evolution API Setup",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "company-created",
+                "options": {}
+            },
+            "name": "Supabase Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://evolution-api:8080/instance/create",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_GLOBAL_EVOLUTION_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "instanceName",
+                            "value": "={{$json.body.record.name.replace(/\\s+/g, '_').toLowerCase()}}_{{$json.body.record.id}}"
+                        },
+                        {
+                            "name": "token",
+                            "value": "={{$json.body.record.id}}"
+                        },
+                        {
+                            "name": "qrcode",
+                            "value": true
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Create Evolution Instance",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                300,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "tableId": "company",
+                "updateKey": "id",
+                "columns": "evolution_instance_name, evolution_api_key",
+                "values": {
+                    "evolution_instance_name": "={{$json.instance.instanceName}}",
+                    "evolution_api_key": "={{$json.hash.apikey}}"
+                }
+            },
+            "name": "Update Company in Supabase",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Supabase Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Create Evolution Instance",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Evolution Instance": {
+            "main": [
+                [
+                    {
+                        "node": "Update Company in Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

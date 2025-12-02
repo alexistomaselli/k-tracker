@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Check, Building2, Copy, LogOut, Clock } from 'lucide-react';
 import { getSupabase } from '../lib/supabase';
 import Card from '../components/ui/Card';
@@ -7,43 +7,50 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useCurrentUser } from '../hooks/useData';
 
+interface Plan {
+    id: string;
+    name: string;
+    price: number;
+    currency: string;
+    description: string;
+    features: string[];
+    active: boolean;
+}
+
+interface BankAccount {
+    id: string;
+    bank_name: string;
+    holder_name: string;
+    account_number: string;
+    cbu: string;
+    alias?: string;
+    active: boolean;
+}
+
+interface Payment {
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    created_at: string;
+}
+
 export default function SelectPlan() {
     const { signOut } = useAuth();
     const { company, isInTrial } = useCurrentUser();
     const toast = useToast();
-    const [plans, setPlans] = useState<any[]>([]);
+    const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPlan, setSelectedPlan] = useState<any>(null);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
     const [paymentAmount, setPaymentAmount] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('transfer');
+    const [paymentMethod] = useState('transfer');
     const [paymentProof, setPaymentProof] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
-    const [pendingPayment, setPendingPayment] = useState<any>(null);
+    const [pendingPayment, setPendingPayment] = useState<Payment | null>(null);
 
-    useEffect(() => {
-        async function loadAll() {
-            if (!company) return;
-
-            setLoading(true);
-            try {
-                await Promise.all([
-                    fetchPlans(),
-                    fetchBankAccounts(),
-                    checkPendingPayment()
-                ]);
-            } catch (error) {
-                console.error('Error loading data:', error);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        loadAll();
-    }, [company]);
-
-    async function checkPendingPayment() {
+    const checkPendingPayment = useCallback(async () => {
         if (!company) return;
         const supabase = getSupabase();
 
@@ -64,9 +71,9 @@ export default function SelectPlan() {
 
             setPendingPayment(payment);
         }
-    }
+    }, [company]);
 
-    async function fetchPlans() {
+    const fetchPlans = useCallback(async () => {
         try {
             const supabase = getSupabase();
             const { data, error } = await supabase!
@@ -80,18 +87,39 @@ export default function SelectPlan() {
         } catch (error) {
             console.error('Error fetching plans:', error);
         }
-    }
+    }, []);
 
-    async function fetchBankAccounts() {
+    const fetchBankAccounts = useCallback(async () => {
         const supabase = getSupabase();
         const { data } = await supabase!
             .from('bank_accounts')
             .select('*')
             .eq('active', true);
         setBankAccounts(data || []);
-    }
+    }, []);
 
-    const handleSelectPlan = (plan: any) => {
+    useEffect(() => {
+        async function loadAll() {
+            if (!company) return;
+
+            setLoading(true);
+            try {
+                await Promise.all([
+                    fetchPlans(),
+                    fetchBankAccounts(),
+                    checkPendingPayment()
+                ]);
+            } catch (error) {
+                console.error('Error loading data:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadAll();
+    }, [company, fetchPlans, fetchBankAccounts, checkPendingPayment]);
+
+    const handleSelectPlan = (plan: Plan) => {
         setSelectedPlan(plan);
         setPaymentAmount(plan.price.toString());
         setShowPaymentModal(true);
@@ -255,9 +283,10 @@ export default function SelectPlan() {
             // Optional: Redirect to a "Payment Pending" view or reload
             window.location.reload();
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error reporting payment:', error);
-            toast.error('Error al reportar pago: ' + error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al reportar pago: ' + errorMessage);
         } finally {
             setUploading(false);
         }

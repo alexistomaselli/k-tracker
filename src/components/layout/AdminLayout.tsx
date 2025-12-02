@@ -1,7 +1,7 @@
 import { Outlet, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentUser } from '../../hooks/useData';
-import { LayoutDashboard, Building2, CreditCard, LogOut, Landmark, Package } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, LogOut, Package } from 'lucide-react';
 
 export default function AdminLayout() {
     const { user, signOut } = useAuth();

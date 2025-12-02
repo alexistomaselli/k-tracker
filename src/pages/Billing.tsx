@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, AlertTriangle, Building2, Copy } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -9,13 +9,55 @@ import { useAuth } from '../hooks/useAuth';
 import { getSupabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 
+interface Plan {
+    id: string;
+    name: string;
+    price: number;
+    currency: string;
+    billing_cycle: string;
+    limits: {
+        users: number;
+        storage_gb: number;
+    };
+}
+
+interface Subscription {
+    id: string;
+    status: string;
+    end_date: string;
+    plans: Plan;
+    company_id: string;
+}
+
+interface Payment {
+    id: string;
+    created_at: string;
+    amount: number;
+    method: string;
+    status: string;
+    proof_url?: string;
+}
+
+interface BankAccount {
+    id: string;
+    bank_name: string;
+    holder_name: string;
+    cbu: string;
+    alias?: string;
+}
+
+interface Company {
+    trial_days: number;
+    created_at: string;
+}
+
 export default function Billing() {
     const { user } = useAuth();
     const toast = useToast();
     const [loading, setLoading] = useState(true);
-    const [subscription, setSubscription] = useState<any>(null);
-    const [payments, setPayments] = useState<any[]>([]);
-    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [subscription, setSubscription] = useState<Subscription | null>(null);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('transfer');
@@ -23,13 +65,9 @@ export default function Billing() {
     const [uploading, setUploading] = useState(false);
 
     const navigate = useNavigate();
-    const [company, setCompany] = useState<any>(null);
+    const [company, setCompany] = useState<Company | null>(null);
 
-    useEffect(() => {
-        loadBillingData();
-    }, [user]);
-
-    async function loadBillingData() {
+    const loadBillingData = useCallback(async () => {
         try {
             setLoading(true);
             const supabase = getSupabase();
@@ -43,7 +81,7 @@ export default function Billing() {
                 .single();
 
             if (!userCompany) return;
-            setCompany(userCompany.company);
+            setCompany(userCompany.company as unknown as Company);
 
             // Get Subscription
             const { data: sub } = await supabase
@@ -52,7 +90,7 @@ export default function Billing() {
                 .eq('company_id', userCompany.company_id)
                 .single();
 
-            setSubscription(sub);
+            setSubscription(sub as unknown as Subscription);
 
             // Get Payments
             if (sub) {
@@ -61,7 +99,7 @@ export default function Billing() {
                     .select('*')
                     .eq('subscription_id', sub.id)
                     .order('created_at', { ascending: false });
-                setPayments(payHistory || []);
+                setPayments((payHistory as unknown as Payment[]) || []);
             }
 
             // Get Bank Accounts
@@ -69,14 +107,18 @@ export default function Billing() {
                 .from('bank_accounts')
                 .select('*')
                 .eq('active', true);
-            setBankAccounts(banks || []);
+            setBankAccounts((banks as unknown as BankAccount[]) || []);
 
         } catch (error) {
             console.error('Error loading billing:', error);
         } finally {
             setLoading(false);
         }
-    }
+    }, [user]);
+
+    useEffect(() => {
+        loadBillingData();
+    }, [loadBillingData]);
 
     const openPaymentModal = () => {
         if (subscription?.plans?.price) {
@@ -130,9 +172,10 @@ export default function Billing() {
             setPaymentProof(null);
             loadBillingData();
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error reporting payment:', error);
-            toast.error('Error al reportar pago: ' + error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            toast.error('Error al reportar pago: ' + errorMessage);
         } finally {
             setUploading(false);
         }
@@ -168,11 +211,11 @@ export default function Billing() {
     let statusMessage = null;
 
     if (isSubscriptionActive) {
-        planName = currentPlan?.name;
+        planName = currentPlan?.name || '';
         planPrice = `${currentPlan?.currency === 'PEN' ? 'S/' : '$'}${currentPlan?.price}/${currentPlan?.billing_cycle === 'annual' ? 'año' : 'mes'}`;
         statusBadge = <Badge variant="completed">Activo</Badge>;
     } else if (isSubscriptionPastDue) {
-        planName = currentPlan?.name;
+        planName = currentPlan?.name || '';
         planPrice = `${currentPlan?.currency === 'PEN' ? 'S/' : '$'}${currentPlan?.price}/${currentPlan?.billing_cycle === 'annual' ? 'año' : 'mes'}`;
         statusBadge = <Badge variant="canceled">Vencido</Badge>;
         statusMessage = (
@@ -401,7 +444,7 @@ export default function Billing() {
                                                                 <span className="text-gray-500">Alias: {bank.alias}</span>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => copyToClipboard(bank.alias)}
+                                                                    onClick={() => copyToClipboard(bank.alias || '')}
                                                                     className="text-blue-600 hover:text-blue-800 p-1"
                                                                     title="Copiar Alias"
                                                                 >

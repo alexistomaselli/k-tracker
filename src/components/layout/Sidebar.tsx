@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, FileText, CheckSquare, LogOut, Layers, Users, User, X, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, FileText, CheckSquare, Layers, Users, User, X, CreditCard, MessageSquare } from 'lucide-react';
 
 import { useCurrentUser } from '../../hooks/useData';
 
@@ -19,6 +19,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { to: '/areas', icon: Layers, label: 'Áreas' },
     { to: '/hr', icon: Users, label: 'Recursos Humanos' },
     { to: '/billing', icon: CreditCard, label: 'Facturación' },
+    { to: '/whatsapp', icon: MessageSquare, label: 'WhatsApp' },
     { to: '/my-account', icon: User, label: 'Mi Cuenta' },
   ];
 

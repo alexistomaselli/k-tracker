@@ -122,8 +122,9 @@ export default function TaskModal({
 
             onSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar la tarea');
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Error al guardar la tarea';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -132,10 +133,6 @@ export default function TaskModal({
     const getAreaName = (areaId: string) => {
         const area = areas.find(a => a.id === areaId);
         return area ? area.name : 'Sin Área asignada';
-    };
-
-    const getParticipantLabel = (p: any) => {
-        return `${p.first_name} ${p.last_name}${p.role ? ` (${p.role})` : ''}`;
     };
 
     const selectedParticipant = participants.find(p => p.id === formData.assigneeId);

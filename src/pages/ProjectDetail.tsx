@@ -32,7 +32,7 @@ export default function ProjectDetail() {
   const { participants, getParticipantById, loading: participantsLoading, error: participantsError, reloadParticipants } = useParticipants();
   const { getAreaById, error: areasError } = useAreas();
   const { countPendingTasks, copyTasksToMinute } = useMinuteActions();
-  const { resources, addResource, removeResource, reloadResources } = useProjectResources(projectId!);
+  const { resources, addResource, removeResource } = useProjectResources(projectId!);
   const { createParticipant } = useParticipantActions();
   const [selectedParticipantId, setSelectedParticipantId] = useState('');
   const [showCreateParticipantModal, setShowCreateParticipantModal] = useState(false);
@@ -128,7 +128,7 @@ export default function ProjectDetail() {
     try {
       if (!participantData.first_name || !participantData.last_name || !participantData.email) return;
 
-      const result = await createParticipant(participantData as any);
+      const result = await createParticipant(participantData as Omit<Participant, 'id' | 'created_at'>);
       if (result && result.participant) {
         await reloadParticipants(); // Reload list to include new participant
         await addResource(result.participant.id); // Auto-add to project
@@ -190,7 +190,7 @@ export default function ProjectDetail() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => !tab.disabled && setActiveTab(tab.id as any)}
+              onClick={() => !tab.disabled && setActiveTab(tab.id as 'tasks' | 'minutes' | 'responsables')}
               disabled={tab.disabled}
               className={`pb-3 px-1 border-b-2 font-medium transition-colors ${activeTab === tab.id
                 ? 'border-[#0A4D8C] text-[#0A4D8C]'
