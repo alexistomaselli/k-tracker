@@ -183,16 +183,16 @@ export default function TaskDetail() {
             <div className="mt-1">
               {(item as Activity).type === 'status_changed' && (
                 <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-md border border-gray-100 inline-flex">
-                  <Badge variant={(item as Activity).payload.from as any}>{String((item as Activity).payload.from)}</Badge>
+                  <Badge variant={(item as Activity).payload.from as string}>{String((item as Activity).payload.from)}</Badge>
                   <ArrowRight className="w-3 h-3 text-gray-400" />
-                  <Badge variant={(item as Activity).payload.to as any}>{String((item as Activity).payload.to)}</Badge>
+                  <Badge variant={(item as Activity).payload.to as string}>{String((item as Activity).payload.to)}</Badge>
                 </div>
               )}
               {(item as Activity).type === 'priority_changed' && (
                 <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-md border border-gray-100 inline-flex">
-                  <Chip priority={(item as Activity).payload.from as any}>{String((item as Activity).payload.from)}</Chip>
+                  <Chip priority={(item as Activity).payload.from as 'low' | 'medium' | 'high' | 'critical'}>{String((item as Activity).payload.from)}</Chip>
                   <ArrowRight className="w-3 h-3 text-gray-400" />
-                  <Chip priority={(item as Activity).payload.to as any}>{String((item as Activity).payload.to)}</Chip>
+                  <Chip priority={(item as Activity).payload.to as 'low' | 'medium' | 'high' | 'critical'}>{String((item as Activity).payload.to)}</Chip>
                 </div>
               )}
             </div>
