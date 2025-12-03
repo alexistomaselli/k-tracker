@@ -65,6 +65,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ status: 'debug_replied' }), { headers: { "Content-Type": "application/json" } })
     }
 
+    // Helper to log to DB
+    const logToDB = async (status: string, details?: string, extraMetadata?: any) => {
+      try {
+        await supabase.from('whatsapp_logs').insert({
+          instance_name: instanceNameFromPayload,
+          remote_jid: remoteJid,
+          phone: phone,
+          message_content: userMessage,
+          status,
+          error_details: details,
+          company_id: (extraMetadata?.company_id || company?.id), // May be undefined if user not found
+          participant_id: participant?.id, // May be undefined
+          metadata: {
+            messageType,
+            candidates: extraMetadata?.candidates,
+            ...extraMetadata
+          }
+        })
+      } catch (err) {
+        console.error('Failed to log to DB:', err)
+      }
+    }
+
     // 3. Identify User & Role
     // Generate potential phone number formats to match against DB
     const candidates = [phone, `+${phone}`]
@@ -88,6 +111,9 @@ Deno.serve(async (req) => {
     if (userError || !participant) {
       console.log('User not found:', phone)
 
+      // Log failure
+      await logToDB('unauthorized', 'User not found in participants table', { candidates })
+
       // Check if we should reply to unknown users
       // We need to find the company associated with this instance to know the setting.
       // Since we don't have the company ID from the user, we must rely on the instance name.
@@ -97,12 +123,13 @@ Deno.serve(async (req) => {
       if (instanceNameFromPayload) {
         const { data: companyData } = await supabase
           .from('company')
-          .select('bot_unknown_reply_enabled')
+          .select('bot_unknown_reply_enabled, id')
           .eq('evolution_instance_name', instanceNameFromPayload)
           .single()
 
         if (companyData && companyData.bot_unknown_reply_enabled === false) {
           console.log('Bot is in Human Mode (Silent) for unknown users. Ignoring.')
+          await logToDB('ignored', 'Human Mode enabled for unknown user', { company_id: companyData.id })
           return new Response(JSON.stringify({ status: 'ignored', reason: 'human_mode' }), { headers: { "Content-Type": "application/json" } })
         }
       }
@@ -115,6 +142,9 @@ Deno.serve(async (req) => {
     const company = user.companies
     const role = user.role === 'admin' ? 'admin' : 'participant'
     const instanceName = company.evolution_instance_name
+
+    // Log success identification
+    await logToDB('processing', 'User identified', { role })
 
     // 4. Define System Prompt & Tools
     const systemPrompt = role === 'admin'
@@ -129,31 +159,45 @@ Deno.serve(async (req) => {
       {
         type: "function",
         function: {
-          name: "get_projects",
-          description: "Get a list of all projects in the company.",
-          parameters: { type: "object", properties: {} }
+          name: "get_tasks",
+          description: "Get tasks. Admins see all project tasks. Participants see only their assigned tasks.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["pending", "in_progress", "completed", "blocked"] },
+              project_id: { type: "string" }
+            }
+          }
         }
       },
       {
         type: "function",
         function: {
-          name: "get_my_tasks",
-          description: "Get tasks assigned to the current user (pending/in_progress).",
-          parameters: { type: "object", properties: {} }
+          name: "update_task_status",
+          description: "Update a task's status.",
+          parameters: {
+            type: "object",
+            properties: {
+              task_id: { type: "string", description: "The ID of the task to update" },
+              status: { type: "string", enum: ["pending", "in_progress", "completed", "blocked"] },
+              notes: { type: "string", description: "Optional notes about the update" }
+            },
+            required: ["task_id", "status"]
+          }
         }
       },
       {
         type: "function",
         function: {
           name: "create_task",
-          description: "Create a new task in a project.",
+          description: "Create a new task (Admin only).",
           parameters: {
             type: "object",
             properties: {
               title: { type: "string" },
               project_id: { type: "string" },
-              description: { type: "string" },
-              assigned_to: { type: "string", description: "User ID to assign to" }
+              assignee_id: { type: "string" },
+              description: { type: "string" }
             },
             required: ["title", "project_id"]
           }
@@ -161,89 +205,151 @@ Deno.serve(async (req) => {
       }
     ]
 
-    // 5. AI Execution Loop
-    const messages = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage }
-    ]
-
+    // 5. Call OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: messages as any,
-      tools: tools as any,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage }
+      ],
+      tools: tools,
       tool_choice: "auto",
     })
 
     const responseMessage = completion.choices[0].message
-    let finalReply = responseMessage.content
 
     // 6. Handle Tool Calls
     if (responseMessage.tool_calls) {
-      messages.push(responseMessage as any) // Add assistant's tool call request to history
+      const toolCalls = responseMessage.tool_calls
+      let finalResponseText = ""
 
-      for (const toolCall of responseMessage.tool_calls) {
-        const fnName = toolCall.function.name
-        const args = JSON.parse(toolCall.function.arguments)
-        let toolResult = ''
+      for (const toolCall of toolCalls) {
+        const functionName = toolCall.function.name
+        const functionArgs = JSON.parse(toolCall.function.arguments)
+        let functionResult = ""
 
-        console.log(`Executing tool: ${fnName}`)
+        console.log(`Calling tool: ${functionName}`, functionArgs)
 
-        if (fnName === 'get_projects') {
-          const { data: projects } = await supabase.from('projects').select('*').eq('company_id', company.id).limit(5)
-          toolResult = JSON.stringify(projects)
-        } else if (fnName === 'get_my_tasks') {
-          const { data: tasks } = await supabase.from('tasks').select('*').eq('assigned_to', user.user_id).neq('status', 'completed').limit(5)
-          toolResult = JSON.stringify(tasks)
-        } else if (fnName === 'create_task') {
-          // Admin only check could be here
-          const { data: newTask, error } = await supabase.from('tasks').insert({
-            ...args,
-            company_id: company.id,
-            status: 'pending',
-            created_by: user.user_id
-          }).select().single()
-          toolResult = error ? `Error: ${error.message}` : `Task created: ${newTask.id}`
+        if (functionName === "get_tasks") {
+          let query = supabase.from('tasks').select('*, projects(name), participants(first_name)')
+
+          if (role !== 'admin') {
+            query = query.eq('assigned_to', user.id)
+          }
+          if (functionArgs.status) query = query.eq('status', functionArgs.status)
+          if (functionArgs.project_id) query = query.eq('project_id', functionArgs.project_id)
+
+          const { data: tasks, error } = await query.limit(5)
+          if (error) functionResult = `Error: ${error.message}`
+          else functionResult = JSON.stringify(tasks)
+        }
+        else if (functionName === "update_task_status") {
+          const { error } = await supabase
+            .from('tasks')
+            .update({ status: functionArgs.status })
+            .eq('id', functionArgs.task_id)
+
+          if (error) functionResult = `Error updating task: ${error.message}`
+          else functionResult = `Task status updated to ${functionArgs.status}`
+        }
+        else if (functionName === "create_task") {
+          if (role !== 'admin') {
+            functionResult = "Error: Only admins can create tasks."
+          } else {
+            const { data: newTask, error } = await supabase
+              .from('tasks')
+              .insert({
+                title: functionArgs.title,
+                project_id: functionArgs.project_id,
+                assigned_to: functionArgs.assignee_id,
+                description: functionArgs.description,
+                status: 'pending',
+                company_id: company.id
+              })
+              .select()
+
+            if (error) functionResult = `Error creating task: ${error.message}`
+            else functionResult = `Task created: ${newTask[0].title}`
+          }
         }
 
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: toolResult
+        // Second call to OpenAI with tool result
+        const secondResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+            responseMessage,
+            {
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: functionResult,
+            },
+          ],
         })
+
+        finalResponseText += secondResponse.choices[0].message.content + "\n"
       }
 
-      // 7. Get Final Answer after Tool Execution
-      const secondResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: messages as any,
-      })
-      finalReply = secondResponse.choices[0].message.content
-    }
+      await sendWhatsAppMessage(remoteJid, finalResponseText, instanceName)
+      await logToDB('success', 'Tool executed and replied', { toolCalls: responseMessage.tool_calls })
 
-    // 8. Send WhatsApp Reply
-    if (finalReply) {
-      await sendWhatsAppMessage(remoteJid, finalReply, instanceName)
+    } else {
+      // Regular response
+      const reply = responseMessage.content
+      await sendWhatsAppMessage(remoteJid, reply, instanceName)
+      await logToDB('success', 'Replied with text')
     }
 
     return new Response(JSON.stringify({ status: 'success' }), { headers: { "Content-Type": "application/json" } })
 
   } catch (error) {
-    console.error(error)
+    console.error('Error:', error)
+    // Try to log error to DB if possible (might fail if payload parsing failed)
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      await supabase.from('whatsapp_logs').insert({
+        status: 'error',
+        error_details: error.message || String(error),
+        metadata: { stack: error.stack }
+      })
+    } catch (e) { /* ignore */ }
+
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } })
   }
 })
 
 async function sendWhatsAppMessage(remoteJid: string, text: string, instanceName: string) {
+  if (!instanceName) {
+    console.error('No instance name provided for reply')
+    return
+  }
+
   const url = `${EVOLUTION_API_URL}/message/sendText/${instanceName}`
-  await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': EVOLUTION_API_KEY
+  const body = {
+    number: remoteJid,
+    options: {
+      delay: 1200,
+      presence: "composing",
+      linkPreview: false
     },
-    body: JSON.stringify({
-      number: remoteJid,
+    textMessage: {
       text: text
+    }
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY
+      },
+      body: JSON.stringify(body)
     })
-  })
+    const data = await response.json()
+    console.log('WhatsApp Reply Sent:', data)
+  } catch (error) {
+    console.error('Error sending WhatsApp reply:', error)
+  }
 }
