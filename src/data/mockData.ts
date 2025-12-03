@@ -10,6 +10,7 @@ export interface Company {
   approval_status?: 'pending' | 'approved' | 'rejected';
   evolution_instance_name?: string;
   evolution_api_key?: string;
+  bot_unknown_reply_enabled?: boolean;
 }
 
 export interface User {
@@ -29,7 +30,7 @@ export interface Participant {
   phone: string;
   active: boolean;
   user_id?: string;
-  area_id?: string;
+  area_id?: string | null;
   password_changed?: boolean;
 }
 

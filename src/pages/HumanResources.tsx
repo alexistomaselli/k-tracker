@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Mail, Phone, Briefcase } from 'lucide-react';
-import { useParticipants, useParticipantActions, useAreas } from '../hooks/useData';
+import { Plus, Search, Edit2, Trash2, Mail, Phone, Briefcase, MessageCircle, AlertCircle } from 'lucide-react';
+import { useParticipants, useParticipantActions, useAreas, useCurrentUser } from '../hooks/useData';
 import { Participant } from '../data/mockData';
 import ParticipantModal from '../components/hr/ParticipantModal';
 import { useToast } from '../context/ToastContext';
@@ -9,6 +9,7 @@ export default function HumanResources() {
     const { participants, loading, error, reloadParticipants } = useParticipants();
     const { createParticipant, updateParticipant, deleteParticipant } = useParticipantActions();
     const { areas } = useAreas();
+    const { user } = useCurrentUser();
     const toast = useToast();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,7 +53,16 @@ export default function HumanResources() {
         try {
             setActionLoading(true);
             if (participantToEdit) {
-                await updateParticipant(participantToEdit.id, data);
+                // If editing self, filter out restricted fields to avoid RLS errors
+                let updateData = { ...data };
+                if (user && participantToEdit.id === user.id) {
+                    // Filter out role, active, email, and company_id for self-update
+                    // Email usually requires auth flow to change
+                    const { role, active, email, company_id, ...rest } = data as any;
+                    updateData = rest;
+                }
+
+                await updateParticipant(participantToEdit.id, updateData);
                 toast.success('Participante actualizado correctamente');
             } else {
                 const result = await createParticipant(data as Omit<Participant, 'id' | 'created_at'>);
@@ -64,9 +74,10 @@ export default function HumanResources() {
             }
             await reloadParticipants();
             setIsModalOpen(false);
-        } catch (err: unknown) {
+        } catch (err: any) {
             console.error('Error saving participant:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+            // Supabase errors are not always instances of Error, but have a message property
+            const errorMessage = err.message || (err instanceof Error ? err.message : 'Error desconocido');
             toast.error(`Error: ${errorMessage}`);
         } finally {
             setActionLoading(false);
@@ -174,10 +185,19 @@ export default function HumanResources() {
                                                     <Mail size={14} className="mr-2" />
                                                     {participant.email}
                                                 </div>
-                                                {participant.phone && (
+                                                {participant.phone ? (
                                                     <div className="flex items-center text-sm text-gray-500">
                                                         <Phone size={14} className="mr-2" />
                                                         {participant.phone}
+                                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="WhatsApp Configurado">
+                                                            <MessageCircle size={10} className="mr-1" />
+                                                            WhatsApp
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center text-sm text-amber-600" title="Falta configurar WhatsApp">
+                                                        <AlertCircle size={14} className="mr-2" />
+                                                        Sin WhatsApp
                                                     </div>
                                                 )}
                                             </div>

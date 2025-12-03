@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '../hooks/useData';
+import { getSupabase } from '../lib/supabase';
 import { MessageSquare, RefreshCw, Link as LinkIcon, Unlink, Smartphone, CheckCircle, AlertCircle, Loader, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import Modal from '../components/ui/Modal';
@@ -52,11 +53,16 @@ export default function WhatsAppSettings() {
         }
     }, [company, fetchConnectionState]);
 
-    // Poll for status when connecting and QR is visible
+    // Poll for status
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (qrCode && connectionState === 'connecting') {
-            interval = setInterval(() => fetchConnectionState(true), 3000);
+        // Poll when connecting (to catch the scan) OR when open (to catch external disconnects)
+        const shouldPoll = (qrCode && connectionState === 'connecting') || connectionState === 'open';
+
+        if (shouldPoll) {
+            // Poll faster when connecting (3s), slower when open (10s) to save resources
+            const delay = connectionState === 'connecting' ? 3000 : 10000;
+            interval = setInterval(() => fetchConnectionState(true), delay);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -94,7 +100,12 @@ export default function WhatsAppSettings() {
                         instanceName: company.evolution_instance_name,
                         token: company.evolution_instance_name.replace('ktracker_', ''),
                         qrcode: true, // Request QR immediately
-                        integration: "WHATSAPP-BAILEYS"
+                        integration: "WHATSAPP-BAILEYS",
+                        webhook: {
+                            enabled: true,
+                            url: "https://pkeyudivtcfbpjntkbyk.supabase.co/functions/v1/whatsapp-webhook",
+                            events: ["MESSAGES_UPSERT"]
+                        }
                     })
                 });
 
@@ -220,6 +231,43 @@ export default function WhatsAppSettings() {
             toast.error('Error al reiniciar la instancia. Por favor intenta nuevamente.');
         } finally {
             setLoading(false);
+        }
+    };
+
+
+
+    // Bot Mode Toggle Logic
+    const [botUnknownReply, setBotUnknownReply] = useState(true);
+
+    useEffect(() => {
+        if (company?.bot_unknown_reply_enabled !== undefined) {
+            setBotUnknownReply(company.bot_unknown_reply_enabled);
+        }
+    }, [company]);
+
+    const handleToggleBotMode = async () => {
+        if (!company) return;
+        const supabase = getSupabase();
+        if (!supabase) {
+            toast.error('Error de conexión con la base de datos.');
+            return;
+        }
+
+        const newValue = !botUnknownReply;
+        setBotUnknownReply(newValue); // Optimistic update
+
+        try {
+            const { error } = await supabase
+                .from('company')
+                .update({ bot_unknown_reply_enabled: newValue })
+                .eq('id', company.id);
+
+            if (error) throw error;
+            toast.success(`Modo ${newValue ? 'Bot (Respuesta)' : 'Humano (Silencioso)'} activado.`);
+        } catch (error) {
+            console.error('Error updating bot mode:', error);
+            setBotUnknownReply(!newValue); // Revert
+            toast.error('Error al actualizar la configuración del bot.');
         }
     };
 
@@ -354,6 +402,33 @@ export default function WhatsAppSettings() {
                     )}
                 </div>
 
+
+
+                {/* Bot Settings */}
+                <div className="bg-white p-6 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuración del Bot</h3>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-900">Responder a Desconocidos</p>
+                            <p className="text-sm text-gray-500">
+                                {botUnknownReply
+                                    ? "El bot responderá con un mensaje de error si el usuario no está registrado."
+                                    : "El bot ignorará los mensajes de usuarios no registrados (Modo Humano)."}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleToggleBotMode}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${botUnknownReply ? 'bg-green-600' : 'bg-gray-200'
+                                }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${botUnknownReply ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                            />
+                        </button>
+                    </div>
+                </div>
+
                 {/* Danger Zone */}
                 <div className="bg-gray-50 p-6 border-t border-gray-200">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">Zona de Peligro</h3>
@@ -406,6 +481,6 @@ export default function WhatsAppSettings() {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }
