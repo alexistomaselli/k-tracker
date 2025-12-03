@@ -52,6 +52,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ status: 'ignored', reason: 'no text found' }), { headers: { "Content-Type": "application/json" } })
     }
 
+    // DEBUG MODE: Reply with debug info if message is "debug"
+    if (userMessage.trim().toLowerCase() === 'debug') {
+      const candidates = [phone, `+${phone}`]
+      if (phone.startsWith('549') && phone.length > 10) {
+        const withoutNine = '54' + phone.substring(3)
+        candidates.push(withoutNine)
+        candidates.push(`+${withoutNine}`)
+      }
+      const debugInfo = `Debug Info:\nRemoteJid: ${remoteJid}\nPhone: ${phone}\nCandidates: ${JSON.stringify(candidates)}\nInstance: ${instanceNameFromPayload}`
+      await sendWhatsAppMessage(remoteJid, debugInfo, instanceNameFromPayload)
+      return new Response(JSON.stringify({ status: 'debug_replied' }), { headers: { "Content-Type": "application/json" } })
+    }
+
     // 3. Identify User & Role
     // Generate potential phone number formats to match against DB
     const candidates = [phone, `+${phone}`]
