@@ -53,11 +53,23 @@ Deno.serve(async (req) => {
     }
 
     // 3. Identify User & Role
-    // First, try to find the user
+    // Generate potential phone number formats to match against DB
+    const candidates = [phone, `+${phone}`]
+
+    // Special handling for Argentina (54) - WhatsApp adds a 9 after 54 for mobiles
+    if (phone.startsWith('549') && phone.length > 10) {
+      const withoutNine = '54' + phone.substring(3)
+      candidates.push(withoutNine)
+      candidates.push(`+${withoutNine}`)
+    }
+
+    // Construct OR query
+    const orQuery = candidates.map(c => `phone.eq.${c}`).join(',')
+
     const { data: participant, error: userError } = await supabase
       .from('participants')
       .select('*, companies(*)')
-      .eq('phone', phone)
+      .or(orQuery)
       .single()
 
     if (userError || !participant) {
