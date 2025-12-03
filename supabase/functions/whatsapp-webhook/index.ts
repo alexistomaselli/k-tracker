@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
       candidates.push(`+${withoutNine}`)
     }
 
-    // Construct OR query
-    const orQuery = candidates.map(c => `phone.eq.${c}`).join(',')
+    // Construct OR query with URL encoding for special chars like '+'
+    const orQuery = candidates.map(c => `phone.eq.${encodeURIComponent(c)}`).join(',')
 
     const { data: participant, error: userError } = await supabase
       .from('participants')
