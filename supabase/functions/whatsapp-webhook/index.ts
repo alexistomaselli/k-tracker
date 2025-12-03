@@ -68,21 +68,22 @@ Deno.serve(async (req) => {
     // Helper to log to DB
     const logToDB = async (status: string, details?: string, extraMetadata?: any) => {
       try {
-        await supabase.from('whatsapp_logs').insert({
+        const { error } = await supabase.from('whatsapp_logs').insert({
           instance_name: instanceNameFromPayload,
           remote_jid: remoteJid,
           phone: phone,
           message_content: userMessage,
           status,
           error_details: details,
-          company_id: (extraMetadata?.company_id || company?.id), // May be undefined if user not found
-          participant_id: participant?.id, // May be undefined
+          company_id: (extraMetadata?.company_id || company?.id),
+          participant_id: participant?.id,
           metadata: {
             messageType,
             candidates: extraMetadata?.candidates,
             ...extraMetadata
           }
         })
+        if (error) console.error('Supabase Insert Error:', error)
       } catch (err) {
         console.error('Failed to log to DB:', err)
       }
@@ -109,10 +110,10 @@ Deno.serve(async (req) => {
       .single()
 
     if (userError || !participant) {
-      console.log('User not found:', phone)
+      console.log('User not found:', phone, userError)
 
       // Log failure
-      await logToDB('unauthorized', 'User not found in participants table', { candidates })
+      await logToDB('unauthorized', userError ? userError.message : 'User not found', { candidates, userError })
 
       // Check if we should reply to unknown users
       // We need to find the company associated with this instance to know the setting.
@@ -134,7 +135,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador.", instanceNameFromPayload)
+      // Append debug info to the message for visibility
+      const debugMsg = `\n\n(Debug: Buscamos: ${candidates.join(', ')}. Error: ${userError?.message || 'None'})`
+      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador." + debugMsg, instanceNameFromPayload)
       return new Response(JSON.stringify({ status: 'unauthorized' }), { headers: { "Content-Type": "application/json" } })
     }
 
