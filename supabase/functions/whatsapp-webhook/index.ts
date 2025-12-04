@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
           message_content: userMessage,
           status,
           error_details: details,
-          company_id: (extraMetadata?.company_id || company?.id),
+          company_id: (extraMetadata?.company_id), // Removed fallback to outer 'company' variable to avoid ReferenceError
           participant_id: participant?.id,
           metadata: {
             messageType,
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
     const { data: participant, error: userError } = await supabase
       .from('participants')
-      .select('*, companies(*)')
+      .select('*, company(*)') // Fixed: 'companies' -> 'company' (singular) based on schema
       .or(orQuery)
       .single()
 
@@ -142,12 +142,12 @@ Deno.serve(async (req) => {
     }
 
     const user = participant
-    const company = user.companies
+    const company = user.company // Fixed: 'companies' -> 'company'
     const role = user.role === 'admin' ? 'admin' : 'participant'
     const instanceName = company.evolution_instance_name
 
     // Log success identification
-    await logToDB('processing', 'User identified', { role })
+    await logToDB('processing', 'User identified', { role, company_id: company.id }) // Pass company_id explicitly
 
     // 4. Define System Prompt & Tools
     const systemPrompt = role === 'admin'
@@ -155,7 +155,20 @@ Deno.serve(async (req) => {
          Capabilities: Query ALL projects, create tasks, check overdue items.
          Current Date: ${new Date().toISOString()}`
       : `You are K-Tracker Assistant for ${user.first_name}. You work at ${company.name}.
-         Capabilities: List YOUR tasks, update YOUR task status, report blockers.
+         Capabilities:
+         - List YOUR tasks (MUST show Status, Due Date, and ⚠️ if overdue).
+         - Update YOUR task status.
+         - Add comments to tasks.
+         - List projects you are in (Read-only).
+         - List minutes you attended (Read-only).
+         
+         IMPORTANT: If the user asks to modify a task (comment/status) by NAME, use the 'get_tasks' tool with the 'search' parameter to find it first. DO NOT ask for an ID. Find the ID yourself.
+         
+         TONE AND STYLE:
+         - Be concise and human-like.
+         - Do NOT be repetitive. Do NOT repeat the full content of what you just did (e.g., if adding a comment, just say "Listo, comentario agregado" or "Registrado", do NOT repeat the comment text).
+         - Use natural language, like a helpful colleague.
+         
          Current Date: ${new Date().toISOString()}`
 
     const tools = [
@@ -163,12 +176,13 @@ Deno.serve(async (req) => {
         type: "function",
         function: {
           name: "get_tasks",
-          description: "Get tasks. Admins see all project tasks. Participants see only their assigned tasks.",
+          description: "Get tasks. Admins see all. Participants see theirs. Returns status and due_date. Use 'search' to find by name.",
           parameters: {
             type: "object",
             properties: {
               status: { type: "string", enum: ["pending", "in_progress", "completed", "blocked"] },
-              project_id: { type: "string" }
+              project_id: { type: "string" },
+              search: { type: "string", description: "Search term for task title (fuzzy match)" }
             }
           }
         }
@@ -181,12 +195,43 @@ Deno.serve(async (req) => {
           parameters: {
             type: "object",
             properties: {
-              task_id: { type: "string", description: "The ID of the task to update" },
+              task_id: { type: "string", description: "The ID of the task" },
               status: { type: "string", enum: ["pending", "in_progress", "completed", "blocked"] },
-              notes: { type: "string", description: "Optional notes about the update" }
+              notes: { type: "string", description: "Optional notes" }
             },
             required: ["task_id", "status"]
           }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_task_comment",
+          description: "Add a text comment to a task.",
+          parameters: {
+            type: "object",
+            properties: {
+              task_id: { type: "string" },
+              content: { type: "string" }
+            },
+            required: ["task_id", "content"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_my_projects",
+          description: "List projects the user is participating in.",
+          parameters: { type: "object", properties: {} }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_my_minutes",
+          description: "List minutes the user attended.",
+          parameters: { type: "object", properties: {} }
         }
       },
       {
@@ -208,23 +253,38 @@ Deno.serve(async (req) => {
       }
     ]
 
-    // 5. Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
-      ],
-      tools: tools,
-      tool_choice: "auto",
-    })
+    // 5. Agentic Loop (Multi-step tool execution)
+    let messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage }
+    ]
 
-    const responseMessage = completion.choices[0].message
+    let finalResponseText = ""
+    let iterations = 0
+    const MAX_ITERATIONS = 5
 
-    // 6. Handle Tool Calls
-    if (responseMessage.tool_calls) {
+    while (iterations < MAX_ITERATIONS) {
+      iterations++
+      console.log(`Iteration ${iterations}: Calling OpenAI...`)
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: messages,
+        tools: tools,
+        tool_choice: "auto",
+      })
+
+      const responseMessage = completion.choices[0].message
+
+      // If no tool calls, we are done. The model has generated the final response.
+      if (!responseMessage.tool_calls) {
+        finalResponseText = responseMessage.content
+        break
+      }
+
+      // If there are tool calls, execute them and continue the loop
+      messages.push(responseMessage) // Add the assistant's tool call message to history
       const toolCalls = responseMessage.tool_calls
-      let finalResponseText = ""
 
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function.name
@@ -233,75 +293,109 @@ Deno.serve(async (req) => {
 
         console.log(`Calling tool: ${functionName}`, functionArgs)
 
-        if (functionName === "get_tasks") {
-          let query = supabase.from('tasks').select('*, projects(name), participants(first_name)')
+        try {
+          if (functionName === "get_tasks") {
+            // Fixed: 'projects' -> 'project' (singular), 'assigned_to' -> 'assignee_id'
+            let query = supabase.from('tasks').select('*, project(name), participants(first_name)')
 
-          if (role !== 'admin') {
-            query = query.eq('assigned_to', user.id)
+            if (role !== 'admin') {
+              query = query.eq('assignee_id', user.id) // Fixed: assigned_to -> assignee_id
+            }
+            if (functionArgs.status) query = query.eq('status', functionArgs.status)
+            if (functionArgs.project_id) query = query.eq('project_id', functionArgs.project_id)
+            if (functionArgs.search) query = query.ilike('description', `%${functionArgs.search}%`) // Fixed: title -> description
+
+            const { data: tasks, error } = await query.limit(5)
+            if (error) functionResult = `Error: ${error.message}`
+            else functionResult = JSON.stringify(tasks)
           }
-          if (functionArgs.status) query = query.eq('status', functionArgs.status)
-          if (functionArgs.project_id) query = query.eq('project_id', functionArgs.project_id)
+          else if (functionName === "add_task_comment") {
+            if (!user.user_id) {
+              functionResult = "Error: User not linked to an account for comments."
+            } else {
+              const { error } = await supabase
+                .from('task_comments')
+                .insert({
+                  task_id: functionArgs.task_id,
+                  content: functionArgs.content,
+                  user_id: user.user_id,
+                  company_id: company.id
+                })
+              if (error) functionResult = `Error adding comment: ${error.message}`
+              else functionResult = "Comment added successfully."
+            }
+          }
+          else if (functionName === "get_my_projects") {
+            const { data, error } = await supabase
+              .from('project_participants')
+              .select('project(*)')
+              .eq('participant_id', user.id)
 
-          const { data: tasks, error } = await query.limit(5)
-          if (error) functionResult = `Error: ${error.message}`
-          else functionResult = JSON.stringify(tasks)
-        }
-        else if (functionName === "update_task_status") {
-          const { error } = await supabase
-            .from('tasks')
-            .update({ status: functionArgs.status })
-            .eq('id', functionArgs.task_id)
+            if (error) functionResult = `Error: ${error.message}`
+            else functionResult = JSON.stringify(data.map((d: any) => d.project))
+          }
+          else if (functionName === "get_my_minutes") {
+            const { data, error } = await supabase
+              .from('minute_attendance')
+              .select('minutes(*)')
+              .eq('participant_id', user.id)
 
-          if (error) functionResult = `Error updating task: ${error.message}`
-          else functionResult = `Task status updated to ${functionArgs.status}`
-        }
-        else if (functionName === "create_task") {
-          if (role !== 'admin') {
-            functionResult = "Error: Only admins can create tasks."
-          } else {
-            const { data: newTask, error } = await supabase
+            if (error) functionResult = `Error: ${error.message}`
+            else functionResult = JSON.stringify(data.map((d: any) => d.minutes))
+          }
+          else if (functionName === "update_task_status") {
+            const { error } = await supabase
               .from('tasks')
-              .insert({
-                title: functionArgs.title,
-                project_id: functionArgs.project_id,
-                assigned_to: functionArgs.assignee_id,
-                description: functionArgs.description,
-                status: 'pending',
-                company_id: company.id
-              })
-              .select()
+              .update({ status: functionArgs.status })
+              .eq('id', functionArgs.task_id)
 
-            if (error) functionResult = `Error creating task: ${error.message}`
-            else functionResult = `Task created: ${newTask[0].title}`
+            if (error) functionResult = `Error updating task: ${error.message}`
+            else functionResult = `Task status updated to ${functionArgs.status}`
           }
+          else if (functionName === "create_task") {
+            if (role !== 'admin') {
+              functionResult = "Error: Only admins can create tasks."
+            } else {
+              const { data: newTask, error } = await supabase
+                .from('tasks')
+                .insert({
+                  description: functionArgs.title, // Fixed: title -> description (mapped from function arg 'title')
+                  project_id: functionArgs.project_id,
+                  assignee_id: functionArgs.assignee_id, // Fixed: assigned_to -> assignee_id
+                  // description: functionArgs.description,
+                  status: 'pending',
+                  company_id: company.id
+                })
+                .select()
+
+              if (error) functionResult = `Error creating task: ${error.message}`
+              else functionResult = `Task created: ${newTask[0].description}`
+            }
+          } else {
+            functionResult = "Error: Tool not found"
+          }
+        } catch (err: any) {
+          functionResult = `Error executing tool: ${err.message}`
         }
 
-        // Second call to OpenAI with tool result
-        const secondResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-            responseMessage,
-            {
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: functionResult,
-            },
-          ],
-        })
-
-        finalResponseText += secondResponse.choices[0].message.content + "\n"
+        // Add tool result to messages
+        messages.push({
+          tool_call_id: toolCall.id,
+          role: "tool",
+          name: functionName,
+          content: functionResult,
+        } as any)
       }
+    } // End of while loop
 
+    // Send the final response to WhatsApp
+    if (finalResponseText) {
       await sendWhatsAppMessage(remoteJid, finalResponseText, instanceName)
-      await logToDB('success', 'Tool executed and replied', { toolCalls: responseMessage.tool_calls })
-
+      await logToDB('success', 'Conversation completed', { company_id: company.id })
     } else {
-      // Regular response
-      const reply = responseMessage.content
-      await sendWhatsAppMessage(remoteJid, reply, instanceName)
-      await logToDB('success', 'Replied with text')
+      // Fallback if loop finished without text (unlikely but possible)
+      await sendWhatsAppMessage(remoteJid, "Lo siento, no pude procesar tu solicitud.", instanceName)
+      await logToDB('error', 'No final response generated', { company_id: company.id })
     }
 
     return new Response(JSON.stringify({ status: 'success' }), { headers: { "Content-Type": "application/json" } })
@@ -336,6 +430,7 @@ async function sendWhatsAppMessage(remoteJid: string, text: string, instanceName
       presence: "composing",
       linkPreview: false
     },
+    text: text, // Added top-level text property for compatibility
     textMessage: {
       text: text
     }
