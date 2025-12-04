@@ -5,6 +5,7 @@ import OpenAI from 'https://deno.land/x/openai@v4.24.0/mod.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
+const N8N_TRANSCRIPTION_WEBHOOK_URL = Deno.env.get('N8N_TRANSCRIPTION_WEBHOOK_URL') || 'https://kai-pro-n8n.3znlkb.easypanel.host/webhook/transcribe'
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || 'https://kai-pro-evolution-api.3znlkb.easypanel.host'
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || ''
 
@@ -16,39 +17,64 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     console.log('Webhook Payload:', JSON.stringify(payload))
 
-    // Robustly extract instance name
-    const instanceNameFromPayload = payload.instance || payload.data?.instance || payload.instanceName || ''
-
-    const { data } = payload
-
-    // 1. Extract Basic Info
-    const remoteJid = data.key.remoteJid
-    const phone = remoteJid.split('@')[0]
-    const messageType = data.messageType
+    let userId = ''
     let userMessage = ''
+    let userName = ''
+    let instanceNameFromPayload = ''
+    let remoteJid = ''
+    let phone = ''
+    let messageType = 'text' // Default
 
-    // 2. Handle Audio vs Text
-    if (messageType === 'audioMessage') {
-      const audioUrl = data.message.audioMessage.url
-      console.log(`Downloading audio from: ${audioUrl}`)
+    // 1. Check for Standardized Payload (from n8n)
+    if (payload.userId && payload.text) {
+      console.log('Received Standardized Payload from n8n')
+      userId = payload.userId
+      userMessage = payload.text
+      userName = payload.name || 'Usuario'
 
-      // Download Audio
-      const audioResponse = await fetch(audioUrl)
-      const audioBlob = await audioResponse.blob()
-      const audioFile = new File([audioBlob], "voice.mp3", { type: "audio/mp3" })
+      // Map standardized fields to legacy variables used downstream
+      remoteJid = userId
+      phone = remoteJid.split('@')[0]
 
-      // Transcribe with Whisper
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-      })
-      userMessage = transcription.text
-      console.log(`Transcribed text: ${userMessage}`)
+      // Try to get instance from originalPayload if available, or top level
+      if (payload.originalPayload) {
+        instanceNameFromPayload = payload.originalPayload.instance || payload.originalPayload.data?.instance || ''
+      }
+      if (!instanceNameFromPayload) {
+        instanceNameFromPayload = payload.instance || ''
+      }
+
+    }
+    // 2. Fallback: Legacy Evolution API Parsing (Direct Webhook)
+    else if (payload.data && payload.data.key) {
+      console.log('Received Direct Evolution API Payload')
+      const { data } = payload
+
+      // Robustly extract instance name
+      instanceNameFromPayload = payload.instance || payload.data?.instance || payload.instanceName || ''
+
+      remoteJid = data.key.remoteJid
+      phone = remoteJid.split('@')[0]
+      userName = data.pushName || 'Usuario'
+      messageType = data.messageType
+
+      if (messageType === 'conversation') {
+        userMessage = data.message.conversation
+      } else if (messageType === 'extendedTextMessage') {
+        userMessage = data.message.extendedTextMessage.text
+      } else if (messageType === 'audioMessage') {
+        console.log('Audio message received directly. Please update Evolution API Webhook URL to point to n8n.')
+        userMessage = 'SISTEMA: Por favor actualiza la URL del Webhook en Evolution API para procesar audios.'
+      }
     } else {
-      userMessage = data.message.conversation || data.message.extendedTextMessage?.text || ''
+      console.log('Unknown payload format')
+      return new Response('Unknown payload', { status: 400 })
     }
 
+    console.log(`Processing message from ${userName} (${userId}): "${userMessage}"`)
+
     if (!userMessage) {
+      console.log('No text content found. Skipping.')
       return new Response(JSON.stringify({ status: 'ignored', reason: 'no text found' }), { headers: { "Content-Type": "application/json" } })
     }
 
@@ -61,7 +87,8 @@ Deno.serve(async (req) => {
         candidates.push(`+${withoutNine}`)
       }
       const debugInfo = `Debug Info:\nRemoteJid: ${remoteJid}\nPhone: ${phone}\nCandidates: ${JSON.stringify(candidates)}\nInstance: ${instanceNameFromPayload}`
-      await sendWhatsAppMessage(remoteJid, debugInfo, instanceNameFromPayload)
+      const messageId = payload.originalPayload?.data?.key?.id || payload.data?.key?.id || ''
+      await sendWhatsAppMessage(remoteJid, debugInfo, instanceNameFromPayload, messageId)
       return new Response(JSON.stringify({ status: 'debug_replied' }), { headers: { "Content-Type": "application/json" } })
     }
 
@@ -75,7 +102,7 @@ Deno.serve(async (req) => {
           message_content: userMessage,
           status,
           error_details: details,
-          company_id: (extraMetadata?.company_id), // Removed fallback to outer 'company' variable to avoid ReferenceError
+          company_id: (extraMetadata?.company_id),
           participant_id: participant?.id,
           metadata: {
             messageType,
@@ -105,7 +132,7 @@ Deno.serve(async (req) => {
 
     const { data: participant, error: userError } = await supabase
       .from('participants')
-      .select('*, company(*)') // Fixed: 'companies' -> 'company' (singular) based on schema
+      .select('*, company(*)')
       .or(orQuery)
       .single()
 
@@ -116,11 +143,6 @@ Deno.serve(async (req) => {
       await logToDB('unauthorized', userError ? userError.message : 'User not found', { candidates, userError })
 
       // Check if we should reply to unknown users
-      // We need to find the company associated with this instance to know the setting.
-      // Since we don't have the company ID from the user, we must rely on the instance name.
-      // But wait, the instance name is unique to the company.
-      // So we can query the company by instance name.
-
       if (instanceNameFromPayload) {
         const { data: companyData } = await supabase
           .from('company')
@@ -137,39 +159,43 @@ Deno.serve(async (req) => {
 
       // Append debug info to the message for visibility
       const debugMsg = `\n\n(Debug: Buscamos: ${candidates.join(', ')}. Error: ${userError?.message || 'None'})`
-      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador." + debugMsg, instanceNameFromPayload)
+      const messageId = payload.originalPayload?.data?.key?.id || payload.data?.key?.id || ''
+      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador." + debugMsg, instanceNameFromPayload, messageId)
       return new Response(JSON.stringify({ status: 'unauthorized' }), { headers: { "Content-Type": "application/json" } })
     }
 
     const user = participant
-    const company = user.company // Fixed: 'companies' -> 'company'
+    const company = user.company
     const role = user.role === 'admin' ? 'admin' : 'participant'
     const instanceName = company.evolution_instance_name
 
     // Log success identification
-    await logToDB('processing', 'User identified', { role, company_id: company.id }) // Pass company_id explicitly
+    await logToDB('processing', 'User identified', { role, company_id: company.id })
 
     // 4. Define System Prompt & Tools
     const systemPrompt = role === 'admin'
       ? `You are K-Tracker Admin Assistant for ${user.first_name}. You manage projects for ${company.name}.
-         Capabilities: Query ALL projects, create tasks, check overdue items.
-         Current Date: ${new Date().toISOString()}`
+             Capabilities: Query ALL projects, create tasks, check overdue items.
+             Current Date: ${new Date().toISOString()}`
       : `You are K-Tracker Assistant for ${user.first_name}. You work at ${company.name}.
-         Capabilities:
-         - List YOUR tasks (MUST show Status, Due Date, and ⚠️ if overdue).
-         - Update YOUR task status.
-         - Add comments to tasks.
-         - List projects you are in (Read-only).
-         - List minutes you attended (Read-only).
-         
-         IMPORTANT: If the user asks to modify a task (comment/status) by NAME, use the 'get_tasks' tool with the 'search' parameter to find it first. DO NOT ask for an ID. Find the ID yourself.
-         
-         TONE AND STYLE:
-         - Be concise and human-like.
-         - Do NOT be repetitive. Do NOT repeat the full content of what you just did (e.g., if adding a comment, just say "Listo, comentario agregado" or "Registrado", do NOT repeat the comment text).
-         - Use natural language, like a helpful colleague.
-         
-         Current Date: ${new Date().toISOString()}`
+             Capabilities:
+              - List YOUR tasks (MUST show Status, Priority, Due Date).
+              - Use 🚨 if the task is OVERDUE (Due Date < Today).
+              - Use ⚠️ if the task is DUE SOON (Due Date is within the next 3 days).
+              - For 'available' or 'my tasks' queries, ALWAYS filter by status='pending,in_progress' unless the user explicitly asks for history or completed tasks.
+             - Update YOUR task status.
+             - Add comments to tasks.
+             - List projects you are in (Read-only).
+             - List minutes you attended (Read-only).
+             
+             IMPORTANT: If the user asks to modify a task (comment/status) by NAME, use the 'get_tasks' tool with the 'search' parameter to find it first. DO NOT ask for an ID. Find the ID yourself.
+             
+             TONE AND STYLE:
+             - Be concise and human-like.
+             - Do NOT be repetitive. Do NOT repeat the full content of what you just did (e.g., if adding a comment, just say "Listo, comentario agregado" or "Registrado", do NOT repeat the comment text).
+             - Use natural language, like a helpful colleague.
+             
+             Current Date: ${new Date().toISOString()}`
 
     const tools = [
       {
@@ -180,7 +206,7 @@ Deno.serve(async (req) => {
           parameters: {
             type: "object",
             properties: {
-              status: { type: "string", enum: ["pending", "in_progress", "completed", "blocked"] },
+              status: { type: "string", description: "Status filter. Can be a single status or comma-separated (e.g., 'pending,in_progress'). Enum values: pending, in_progress, completed, blocked" },
               project_id: { type: "string" },
               search: { type: "string", description: "Search term for task title (fuzzy match)" }
             }
@@ -295,15 +321,21 @@ Deno.serve(async (req) => {
 
         try {
           if (functionName === "get_tasks") {
-            // Fixed: 'projects' -> 'project' (singular), 'assigned_to' -> 'assignee_id'
             let query = supabase.from('tasks').select('*, project(name), participants(first_name)')
 
             if (role !== 'admin') {
-              query = query.eq('assignee_id', user.id) // Fixed: assigned_to -> assignee_id
+              query = query.eq('assignee_id', user.id)
             }
-            if (functionArgs.status) query = query.eq('status', functionArgs.status)
+            if (functionArgs.status) {
+              if (functionArgs.status.includes(',')) {
+                const statuses = functionArgs.status.split(',').map((s: string) => s.trim())
+                query = query.in('status', statuses)
+              } else {
+                query = query.eq('status', functionArgs.status)
+              }
+            }
             if (functionArgs.project_id) query = query.eq('project_id', functionArgs.project_id)
-            if (functionArgs.search) query = query.ilike('description', `%${functionArgs.search}%`) // Fixed: title -> description
+            if (functionArgs.search) query = query.ilike('description', `%${functionArgs.search}%`)
 
             const { data: tasks, error } = await query.limit(5)
             if (error) functionResult = `Error: ${error.message}`
@@ -359,10 +391,9 @@ Deno.serve(async (req) => {
               const { data: newTask, error } = await supabase
                 .from('tasks')
                 .insert({
-                  description: functionArgs.title, // Fixed: title -> description (mapped from function arg 'title')
+                  description: functionArgs.title,
                   project_id: functionArgs.project_id,
-                  assignee_id: functionArgs.assignee_id, // Fixed: assigned_to -> assignee_id
-                  // description: functionArgs.description,
+                  assignee_id: functionArgs.assignee_id,
                   status: 'pending',
                   company_id: company.id
                 })
@@ -390,8 +421,11 @@ Deno.serve(async (req) => {
 
     // Send the final response to WhatsApp
     if (finalResponseText) {
-      await sendWhatsAppMessage(remoteJid, finalResponseText, instanceName)
-      await logToDB('success', 'Conversation completed', { company_id: company.id })
+      const messageId = payload.originalPayload?.data?.key?.id || payload.data?.key?.id || ''
+      await sendWhatsAppMessage(remoteJid, finalResponseText, instanceNameFromPayload, messageId)
+
+      // Log success
+      await logToDB('replied', 'Response sent', { role, company_id: company.id })
     } else {
       // Fallback if loop finished without text (unlikely but possible)
       await sendWhatsAppMessage(remoteJid, "Lo siento, no pude procesar tu solicitud.", instanceName)
@@ -416,21 +450,83 @@ Deno.serve(async (req) => {
   }
 })
 
-async function sendWhatsAppMessage(remoteJid: string, text: string, instanceName: string) {
+async function markAsRead(remoteJid: string, instanceName: string, messageId: string) {
+  const url = `${EVOLUTION_API_URL}/chat/markMessageAsRead/${instanceName}`
+  const body = {
+    readMessages: [
+      {
+        remoteJid: remoteJid,
+        fromMe: false,
+        id: messageId
+      }
+    ]
+  }
+
+  try {
+    await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY
+      },
+      body: JSON.stringify(body)
+    })
+  } catch (error) {
+    console.error('Error marking as read:', error)
+  }
+}
+
+async function sendPresence(remoteJid: string, instanceName: string) {
+  const url = `${EVOLUTION_API_URL}/chat/sendPresence/${instanceName}`
+  const body = {
+    number: remoteJid,
+    presence: "composing",
+    delay: 1200 // Internal Evolution delay, we handle main delay in code
+  }
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY
+      },
+      body: JSON.stringify(body)
+    })
+  } catch (error) {
+    console.error('Error sending presence:', error)
+  }
+}
+
+async function sendWhatsAppMessage(remoteJid: string, text: string, instanceName: string, messageId: string) {
   if (!instanceName) {
     console.error('No instance name provided for reply')
     return
   }
 
+  // 1. Mark as Read (Blue Ticks)
+  if (messageId) {
+    await markAsRead(remoteJid, instanceName, messageId)
+  }
+
+  // 2. Send "Typing..." status immediately
+  await sendPresence(remoteJid, instanceName)
+
+  // 3. Calculate dynamic delay based on text length
+  // 80ms per character, min 4s, max 25s
+  const delay = Math.min(Math.max(text.length * 80, 4000), 25000)
+
+  // 4. Wait for the calculated delay
+  await new Promise(resolve => setTimeout(resolve, delay))
+
+  // 5. Send the actual message
   const url = `${EVOLUTION_API_URL}/message/sendText/${instanceName}`
   const body = {
     number: remoteJid,
     options: {
-      delay: 1200,
-      presence: "composing",
       linkPreview: false
     },
-    text: text, // Added top-level text property for compatibility
+    text: text,
     textMessage: {
       text: text
     }

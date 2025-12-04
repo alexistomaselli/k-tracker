@@ -77,14 +77,11 @@
         },
         {
             "parameters": {
-                "url": "={{ $json.data.message.audioMessage.url }}",
-                "options": {
-                    "responseType": "buffer"
-                }
+                "functionCode": "// Get base64 string from payload\n// Evolution API typically sends it in data.message.base64 or data.base64\nconst base64Data = items[0].json.data.message?.base64 || items[0].json.data?.base64;\n\nif (!base64Data) {\n  throw new Error('No base64 audio data found in webhook payload');\n}\n\n// Create binary data object\n// n8n expects the binary data to be a base64 string in the 'data' property\nreturn [\n  {\n    json: items[0].json,\n    binary: {\n      data: {\n        data: base64Data,\n        mimeType: 'audio/ogg', // Default for WhatsApp voice notes\n        fileName: 'audio.ogg'\n      }\n    }\n  }\n];"
             },
-            "name": "Download Audio",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 3,
+            "name": "Process Base64 Audio",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
             "position": [
                 320,
                 180
@@ -335,7 +332,7 @@
             "main": [
                 [
                     {
-                        "node": "Download Audio",
+                        "node": "Process Base64 Audio",
                         "type": "main",
                         "index": 0
                     }
@@ -356,7 +353,7 @@
                 ]
             ]
         },
-        "Download Audio": {
+        "Process Base64 Audio": {
             "main": [
                 [
                     {
