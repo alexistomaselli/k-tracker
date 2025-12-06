@@ -97,7 +97,7 @@ export default function Landing() {
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
-      <section className="relative text-white py-32 px-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/hero-2.webp')" }}>
+      <section className="relative text-white py-32 px-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/hero-3.webp')" }}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#0A4D8C]/90 to-[#1B6FB3]/80 z-0"></div>
         <div className="relative z-10 max-w-6xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 drop-shadow-lg">
@@ -190,25 +190,24 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="py-16 px-4 bg-gradient-to-br from-[#0A4D8C] to-[#1B6FB3] text-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-6">
+      <section className="py-20 bg-[#0A4D8C] relative overflow-hidden bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/demo.webp')" }}>
+        <div className="absolute inset-0 bg-[#0A4D8C]/90 z-0"></div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <h2 className="text-3xl font-bold text-white mb-4">
             ¿Listo para Optimizar tus Proyectos?
           </h2>
-          <p className="text-xl mb-8 text-blue-100">
+          <p className="text-xl text-blue-100 mb-8">
             Únete a empresas líderes en construcción que ya confían en K-Tracker
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link to="/signup">
-              <Button variant="secondary" size="lg" className="bg-white text-[#0A4D8C] hover:bg-gray-100 w-full sm:w-auto">
+              <Button variant="secondary" size="lg" className="!bg-white !text-[#0A4D8C] hover:!bg-gray-100 w-full sm:w-auto shadow-lg">
                 Crear Cuenta Gratis
               </Button>
             </Link>
-            <Link to="/signup">
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
-                Solicitar Demo
-              </Button>
-            </Link>
+            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
+              Solicitar Demo
+            </Button>
           </div>
         </div>
       </section>
