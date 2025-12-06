@@ -1,5 +1,5 @@
 {
-    "name": "K-Tracker: WhatsApp AI Agent",
+    "name": "K-Tracker: WhatsApp AI Agent (Voice + Roles + Tools)",
     "nodes": [
         {
             "parameters": {
@@ -11,20 +11,92 @@
             "type": "n8n-nodes-base.webhook",
             "typeVersion": 1,
             "position": [
-                100,
+                0,
                 300
             ]
         },
         {
             "parameters": {
-                "functionCode": "const remoteJid = items[0].json.data.key.remoteJid;\nconst phone = remoteJid.split('@')[0];\nreturn { json: { phone, remoteJid, message: items[0].json.data.message.conversation || items[0].json.data.message.extendedTextMessage.text } };"
+                "dataType": "string",
+                "value1": "={{ $json.data.messageType }}",
+                "rules": {
+                    "rules": [
+                        {
+                            "value2": "audioMessage"
+                        },
+                        {
+                            "value2": "conversation",
+                            "output": 1
+                        },
+                        {
+                            "value2": "extendedTextMessage",
+                            "output": 1
+                        }
+                    ]
+                }
             },
-            "name": "Extract Phone & Message",
+            "name": "Check Message Type",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 1,
+            "position": [
+                220,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const remoteJid = items[0].json.data.key.remoteJid;\nconst phone = remoteJid.split('@')[0];\nconst text = items[0].json.data.message.conversation || items[0].json.data.message.extendedTextMessage.text;\nreturn { json: { phone, remoteJid, text } };"
+            },
+            "name": "Extract Text",
             "type": "n8n-nodes-base.function",
             "typeVersion": 1,
             "position": [
-                300,
-                300
+                460,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "audio",
+                "operation": "transcribe",
+                "binaryPropertyName": "data"
+            },
+            "name": "OpenAI Whisper",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                460,
+                180
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "OpenAI account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "functionCode": "// Get base64 string from payload\n// Evolution API typically sends it in data.message.base64 or data.base64\nconst base64Data = items[0].json.data.message?.base64 || items[0].json.data?.base64;\n\nif (!base64Data) {\n  throw new Error('No base64 audio data found in webhook payload');\n}\n\n// Create binary data object\n// n8n expects the binary data to be a base64 string in the 'data' property\nreturn [\n  {\n    json: items[0].json,\n    binary: {\n      data: {\n        data: base64Data,\n        mimeType: 'audio/ogg', // Default for WhatsApp voice notes\n        fileName: 'audio.ogg'\n      }\n    }\n  }\n];"
+            },
+            "name": "Process Base64 Audio",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                320,
+                180
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const remoteJid = $('Evolution API Webhook').item.json.data.key.remoteJid;\nconst phone = remoteJid.split('@')[0];\nconst text = items[0].json.text;\nreturn { json: { phone, remoteJid, text } };"
+            },
+            "name": "Format Audio Text",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                620,
+                180
             ]
         },
         {
@@ -35,17 +107,17 @@
                     "conditions": [
                         {
                             "key": "phone",
-                            "value": "={{$json.phone}}",
+                            "value": "={{ $json.phone }}",
                             "operator": "eq"
                         }
                     ]
                 }
             },
-            "name": "Find User in Supabase",
+            "name": "Find User",
             "type": "n8n-nodes-base.supabase",
             "typeVersion": 1,
             "position": [
-                500,
+                820,
                 300
             ],
             "credentials": {
@@ -57,35 +129,68 @@
         },
         {
             "parameters": {
-                "conditions": {
-                    "boolean": [
+                "tableId": "companies",
+                "limit": 1,
+                "filters": {
+                    "conditions": [
                         {
-                            "value1": "={{$json.id}}",
-                            "operator": "notEmpty"
+                            "key": "id",
+                            "value": "={{ $json.company_id }}",
+                            "operator": "eq"
                         }
                     ]
                 }
             },
-            "name": "User Found?",
-            "type": "n8n-nodes-base.if",
+            "name": "Get Company Details",
+            "type": "n8n-nodes-base.supabase",
             "typeVersion": 1,
             "position": [
-                700,
+                1020,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "functionCode": "const user = $('Find User').item.json;\nconst company = items[0].json;\n\nlet role = 'participant';\nlet systemPrompt = '';\n\nif (user.role === 'admin') {\n  role = 'admin';\n  systemPrompt = `You are K-Tracker Admin Assistant. You help ${user.first_name} manage projects. \n  Current Company: ${company.name}\n  Capabilities: \n  - Query status of ALL projects.\n  - Create tasks for others.\n  - Check overdue tasks globally.`;\n} else {\n  role = 'participant';\n  systemPrompt = `You are K-Tracker Assistant for ${user.first_name}. \n  Current Company: ${company.name}\n  Capabilities: \n  - List YOUR assigned tasks.\n  - Update status of YOUR tasks.\n  - Report blockers.`;\n}\n\nreturn { json: { ...user, company_evolution_instance_name: company.evolution_instance_name, role, systemPrompt } };"
+            },
+            "name": "Determine Role & Prompt",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                1220,
                 300
             ]
         },
         {
             "parameters": {
                 "options": {
-                    "systemMessage": "You are a helpful assistant for K-Tracker. You help users manage their tasks. \nCurrent User: {{$json.first_name}} {{$json.last_name}}\nUser ID: {{$json.user_id}}\nCompany ID: {{$json.company_id}}"
+                    "systemMessage": "={{ $json.systemPrompt }}"
                 }
             },
             "name": "AI Agent",
             "type": "@n8n/n8n-nodes-langchain.agent",
             "typeVersion": 1,
             "position": [
-                900,
-                200
+                1440,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "model": "gpt-4o"
+            },
+            "name": "OpenAI Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                1440,
+                500
             ],
             "credentials": {
                 "openAiApi": {
@@ -97,17 +202,17 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "http://evolution-api:8080/message/sendText/{{$node[\"Find User in Supabase\"].json.company_evolution_instance_name}}",
+                "url": "https://kai-pro-evolution-api.3znlkb.easypanel.host/message/sendText/{{ $node[\"Determine Role & Prompt\"].json.company_evolution_instance_name }}",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
                         {
                             "name": "number",
-                            "value": "={{$node[\"Extract Phone & Message\"].json.remoteJid}}"
+                            "value": "={{ $node[\"Determine Role & Prompt\"].json.remoteJid }}"
                         },
                         {
                             "name": "text",
-                            "value": "={{$json.output}}"
+                            "value": "={{ $json.output }}"
                         }
                     ]
                 },
@@ -117,36 +222,98 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 3,
             "position": [
-                1100,
-                200
+                1760,
+                300
             ]
         },
         {
             "parameters": {
-                "method": "POST",
-                "url": "http://evolution-api:8080/message/sendText/default",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
+                "name": "get_projects",
+                "description": "Get a list of all projects in the company. Useful for checking status or finding project IDs.",
+                "jsonSchema": "{\"type\":\"object\",\"properties\":{}}"
+            },
+            "name": "Tool: Get Projects",
+            "type": "@n8n/n8n-nodes-langchain.toolStructured",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                680
+            ]
+        },
+        {
+            "parameters": {
+                "tableId": "projects",
+                "limit": 10,
+                "filters": {
+                    "conditions": [
                         {
-                            "name": "number",
-                            "value": "={{$node[\"Extract Phone & Message\"].json.remoteJid}}"
-                        },
-                        {
-                            "name": "text",
-                            "value": "Lo siento, tu número no está registrado en K-Tracker. Contacta a tu administrador."
+                            "key": "company_id",
+                            "value": "={{ $('Determine Role & Prompt').item.json.company_id }}",
+                            "operator": "eq"
                         }
                     ]
-                },
-                "options": {}
+                }
             },
-            "name": "Send Unauthorized Reply",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 3,
+            "name": "Supabase: Get Projects",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
             "position": [
-                900,
-                400
+                1480,
+                680
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "name": "get_my_tasks",
+                "description": "Get tasks assigned to the current user. Returns pending and in-progress tasks.",
+                "jsonSchema": "{\"type\":\"object\",\"properties\":{}}"
+            },
+            "name": "Tool: Get My Tasks",
+            "type": "@n8n/n8n-nodes-langchain.toolStructured",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                840
             ]
+        },
+        {
+            "parameters": {
+                "tableId": "tasks",
+                "limit": 10,
+                "filters": {
+                    "conditions": [
+                        {
+                            "key": "assigned_to",
+                            "value": "={{ $('Determine Role & Prompt').item.json.user_id }}",
+                            "operator": "eq"
+                        },
+                        {
+                            "key": "status",
+                            "value": "completed",
+                            "operator": "neq"
+                        }
+                    ]
+                }
+            },
+            "name": "Supabase: Get My Tasks",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                1480,
+                840
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+                    "name": "Supabase account"
+                }
+            }
         }
     ],
     "connections": {
@@ -154,36 +321,105 @@
             "main": [
                 [
                     {
-                        "node": "Extract Phone & Message",
+                        "node": "Check Message Type",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Extract Phone & Message": {
+        "Check Message Type": {
             "main": [
                 [
                     {
-                        "node": "Find User in Supabase",
+                        "node": "Process Base64 Audio",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Extract Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Extract Text",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Find User in Supabase": {
+        "Process Base64 Audio": {
             "main": [
                 [
                     {
-                        "node": "User Found?",
+                        "node": "OpenAI Whisper",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "User Found?": {
+        "OpenAI Whisper": {
+            "main": [
+                [
+                    {
+                        "node": "Format Audio Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Text": {
+            "main": [
+                [
+                    {
+                        "node": "Find User",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Audio Text": {
+            "main": [
+                [
+                    {
+                        "node": "Find User",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Find User": {
+            "main": [
+                [
+                    {
+                        "node": "Get Company Details",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Company Details": {
+            "main": [
+                [
+                    {
+                        "node": "Determine Role & Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Determine Role & Prompt": {
             "main": [
                 [
                     {
@@ -191,10 +427,54 @@
                         "type": "main",
                         "index": 0
                     }
-                ],
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_language_model": [
                 [
                     {
-                        "node": "Send Unauthorized Reply",
+                        "node": "AI Agent",
+                        "type": "ai_language_model",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool: Get Projects": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ],
+            "main": [
+                [
+                    {
+                        "node": "Supabase: Get Projects",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool: Get My Tasks": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ],
+            "main": [
+                [
+                    {
+                        "node": "Supabase: Get My Tasks",
                         "type": "main",
                         "index": 0
                     }

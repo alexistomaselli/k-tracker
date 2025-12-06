@@ -20,14 +20,7 @@ export default function Gatekeeper({ children }: { children: React.ReactNode }) 
 
             const supabase = getSupabase();
 
-            // 1. Fetch fresh company data (for trial status)
-            const { data: companyData } = await supabase!
-                .from('company')
-                .select('created_at, trial_days')
-                .eq('id', initialCompany.id)
-                .single();
-
-            // 2. Fetch subscription status
+            // 1. Fetch subscription status (only external dependency now)
             const { data: subData } = await supabase!
                 .from('subscriptions')
                 .select('status')
@@ -35,11 +28,11 @@ export default function Gatekeeper({ children }: { children: React.ReactNode }) 
                 .eq('status', 'active')
                 .maybeSingle();
 
-            // 3. Calculate Trial Status
+            // 2. Calculate Trial Status using already loaded company data
             let trialActive = false;
-            if (companyData) {
-                const trialDays = companyData.trial_days || 14;
-                const createdAt = new Date(companyData.created_at);
+            if (initialCompany) {
+                const trialDays = initialCompany.trial_days || 14;
+                const createdAt = new Date(initialCompany.created_at);
                 const trialEnd = new Date(createdAt.getTime() + (trialDays * 24 * 60 * 60 * 1000));
                 trialActive = new Date() < trialEnd;
             }

@@ -1,6 +1,6 @@
-import { useEffect, useState, ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
-import { Navigate } from 'react-router-dom'
+
 import { Session, User } from '@supabase/supabase-js'
 
 export function useAuth() {
@@ -42,25 +42,4 @@ export function useAuth() {
   return { loading, session, user, isAuthenticated, verified, requireEmailVerified: VERIFIED_REQUIRED, signOut }
 }
 
-import { useCurrentUser } from './useData'
 
-export function RequireAuth({ children }: { children: ReactNode }) {
-  const { loading, isAuthenticated, verified, requireEmailVerified } = useAuth()
-  if (loading) return null
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (requireEmailVerified && !verified) return <Navigate to="/login?verifyEmail=true" replace />
-  return <>{children}</>
-}
-
-export function RequireAdmin({ children }: { children: ReactNode }) {
-  const { isAdmin, loading } = useCurrentUser()
-
-  if (loading) return <div className="p-8 text-center text-gray-500">Cargando...</div>
-
-  if (!isAdmin) {
-    // Redirect participants to their dashboard/tasks view if they try to access admin routes
-    return <Navigate to="/dashboard" replace />
-  }
-
-  return <>{children}</>
-}

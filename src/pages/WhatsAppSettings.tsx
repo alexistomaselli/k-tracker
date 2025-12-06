@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '../hooks/useData';
+import { getSupabase } from '../lib/supabase';
 import { MessageSquare, RefreshCw, Link as LinkIcon, Unlink, Smartphone, CheckCircle, AlertCircle, Loader, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import Modal from '../components/ui/Modal';
@@ -12,12 +13,10 @@ export default function WhatsAppSettings() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+    const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
     const toast = useToast();
 
-    // Evolution API Base URL - In a real app, this might be an env var or proxy
-    // We use the one provided by the user, but dynamically we might need to store it in the DB if it varies.
-    // For now, we assume the one used in n8n is the global one, but we need the one for the instance.
-    // Actually, the instance URL is usually the same base URL.
+    // Evolution API Base URL
     const EVOLUTION_API_URL = 'https://kai-pro-evolution-api.3znlkb.easypanel.host';
 
     const fetchConnectionState = useCallback(async (silent = false) => {
@@ -25,18 +24,69 @@ export default function WhatsAppSettings() {
 
         try {
             if (!silent) setLoading(true);
-            const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
+
+            // 1. Check connection state
+            const stateResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
                 headers: {
                     'apikey': company.evolution_api_key
                 }
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                // Evolution API returns { instance: { state: 'open' } }
-                setConnectionState(data.instance?.state || 'close');
+            if (stateResponse.ok) {
+                const stateData = await stateResponse.json();
+                const state = stateData.instance?.state || 'close';
+                setConnectionState(state);
+
+                if (state === 'open') {
+                    // 2. If open, fetch instance details to get the number
+                    try {
+                        const instanceResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${company.evolution_instance_name}`, {
+                            headers: {
+                                'apikey': company.evolution_api_key
+                            }
+                        });
+
+                        if (instanceResponse.ok) {
+                            const instanceData = await instanceResponse.json();
+                            console.log('Instance Data:', instanceData);
+
+                            let targetInstance: any = null;
+
+                            // 1. Try to find in top-level array or object
+                            const dataArray = Array.isArray(instanceData) ? instanceData : [instanceData];
+                            targetInstance = dataArray.find((i: any) =>
+                                i.name === company.evolution_instance_name ||
+                                i.instance?.instanceName === company.evolution_instance_name
+                            );
+
+                            // 2. If not found, check for nested 'data' property (common in some API versions)
+                            if (!targetInstance && instanceData.data) {
+                                const nestedArray = Array.isArray(instanceData.data) ? instanceData.data : [instanceData.data];
+                                targetInstance = nestedArray.find((i: any) =>
+                                    i.name === company.evolution_instance_name ||
+                                    i.instance?.instanceName === company.evolution_instance_name
+                                );
+                            }
+
+                            // 3. Extract number from ownerJid or owner
+                            const rawJid = targetInstance?.ownerJid || targetInstance?.instance?.owner || targetInstance?.owner;
+
+                            if (rawJid) {
+                                const number = rawJid.split('@')[0];
+                                setConnectedNumber(number);
+                            } else {
+                                setConnectedNumber(null);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error fetching instance details:', e);
+                    }
+                } else {
+                    setConnectedNumber(null);
+                }
             } else {
                 setConnectionState('offline');
+                setConnectedNumber(null);
             }
         } catch (err) {
             console.error('Error checking status:', err);
@@ -46,17 +96,26 @@ export default function WhatsAppSettings() {
         }
     }, [company, EVOLUTION_API_URL]);
 
+    // ... (rest of the file)
+
+
+
     useEffect(() => {
         if (company?.evolution_instance_name) {
             fetchConnectionState();
         }
     }, [company, fetchConnectionState]);
 
-    // Poll for status when connecting and QR is visible
+    // Poll for status
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (qrCode && connectionState === 'connecting') {
-            interval = setInterval(() => fetchConnectionState(true), 3000);
+        // Poll when connecting (to catch the scan) OR when open (to catch external disconnects)
+        const shouldPoll = (qrCode && connectionState === 'connecting') || connectionState === 'open';
+
+        if (shouldPoll) {
+            // Poll faster when connecting (3s), slower when open (10s) to save resources
+            const delay = connectionState === 'connecting' ? 3000 : 10000;
+            interval = setInterval(() => fetchConnectionState(true), delay);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -94,7 +153,14 @@ export default function WhatsAppSettings() {
                         instanceName: company.evolution_instance_name,
                         token: company.evolution_instance_name.replace('ktracker_', ''),
                         qrcode: true, // Request QR immediately
-                        integration: "WHATSAPP-BAILEYS"
+                        integration: "WHATSAPP-BAILEYS",
+                        webhook: {
+                            enabled: true,
+                            url: "https://kai-pro-n8n.3znlkb.easypanel.host/webhook/whatsapp-bot",
+                            events: ["MESSAGES_UPSERT"]
+                        },
+                        rejectCall: true,
+                        groupsIgnore: true
                     })
                 });
 
@@ -223,6 +289,43 @@ export default function WhatsAppSettings() {
         }
     };
 
+
+
+    // Bot Mode Toggle Logic
+    const [botUnknownReply, setBotUnknownReply] = useState(true);
+
+    useEffect(() => {
+        if (company?.bot_unknown_reply_enabled !== undefined) {
+            setBotUnknownReply(company.bot_unknown_reply_enabled);
+        }
+    }, [company]);
+
+    const handleToggleBotMode = async () => {
+        if (!company) return;
+        const supabase = getSupabase();
+        if (!supabase) {
+            toast.error('Error de conexión con la base de datos.');
+            return;
+        }
+
+        const newValue = !botUnknownReply;
+        setBotUnknownReply(newValue); // Optimistic update
+
+        try {
+            const { error } = await supabase
+                .from('company')
+                .update({ bot_unknown_reply_enabled: newValue })
+                .eq('id', company.id);
+
+            if (error) throw error;
+            toast.success(`Modo ${newValue ? 'Bot (Respuesta)' : 'Humano (Silencioso)'} activado.`);
+        } catch (error) {
+            console.error('Error updating bot mode:', error);
+            setBotUnknownReply(!newValue); // Revert
+            toast.error('Error al actualizar la configuración del bot.');
+        }
+    };
+
     if (loadingUser) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -302,6 +405,11 @@ export default function WhatsAppSettings() {
                                 <CheckCircle className="w-10 h-10" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">¡WhatsApp Conectado!</h3>
+                            {connectedNumber && (
+                                <p className="text-lg font-medium text-gray-700 mb-2">
+                                    +{connectedNumber}
+                                </p>
+                            )}
                             <p className="text-gray-500 max-w-md mx-auto">
                                 Tu instancia está activa y lista para procesar mensajes. El bot responderá automáticamente a los participantes registrados.
                             </p>
@@ -352,6 +460,33 @@ export default function WhatsAppSettings() {
                             )}
                         </div>
                     )}
+                </div>
+
+
+
+                {/* Bot Settings */}
+                <div className="bg-white p-6 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuración del Bot</h3>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-900">Responder a Desconocidos</p>
+                            <p className="text-sm text-gray-500">
+                                {botUnknownReply
+                                    ? "El bot responderá con un mensaje de error si el usuario no está registrado."
+                                    : "El bot ignorará los mensajes de usuarios no registrados (Modo Humano)."}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleToggleBotMode}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${botUnknownReply ? 'bg-green-600' : 'bg-gray-200'
+                                }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${botUnknownReply ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                            />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Danger Zone */}
@@ -406,6 +541,6 @@ export default function WhatsAppSettings() {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }

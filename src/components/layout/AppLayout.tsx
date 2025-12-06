@@ -27,7 +27,7 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] flex flex-col">
+    <div className="min-h-screen bg-[#F5F7FA] dark:bg-gray-900 flex flex-col">
       <Navbar
         isAuthenticated={isAuthenticated}
         onMenuClick={() => setSidebarOpen(true)}

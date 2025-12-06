@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Plus, Trash2, Save, X, ChevronDown, Eye, Building2, CheckCircle, AlertCircle, MoreHorizontal } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
 import Avatar from '../components/ui/Avatar';
-import { useMinutes, useProjects, useTasks, useParticipants, useAreas, useTaskActions, useParticipantActions, useProjectResources, useMinuteActions, useAgenda, useAgendaActions, useAttendance, useAttendanceActions } from '../hooks/useData';
+import { useMinutes, useProjects, useTasks, useParticipants, useAreas, useTaskActions, useParticipantActions, useProjectResources, useMinuteActions, useAgenda, useAgendaActions, useAttendance, useAttendanceActions, useMinuteRoutines } from '../hooks/useData';
 import { Task } from '../hooks/useMockData';
 import TaskModal from '../components/tasks/TaskModal';
 import MinuteModal from '../components/minutes/MinuteModal';
@@ -23,10 +23,12 @@ interface NewTask extends Partial<Task> {
 
 export default function MinuteDetail() {
   const { minuteId } = useParams<{ minuteId: string }>();
+  const navigate = useNavigate();
   const toast = useToast();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showEditMinuteModal, setShowEditMinuteModal] = useState(false);
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState({ description: '', notes: '' });
@@ -41,10 +43,51 @@ export default function MinuteDetail() {
   const { areas } = useAreas();
   const { createTask, deleteTask } = useTaskActions();
   const { updateParticipant } = useParticipantActions();
-  const { updateMinute, dissociatePendingTasks, associateTasksToMinute } = useMinuteActions();
+  const { updateMinute, dissociatePendingTasks, associateTasksToMinute, countPendingTasks, deleteMinute } = useMinuteActions();
+
   const { markAttendance } = useAttendanceActions();
+  const { getMinuteRoutines, upsertMinuteRoutineStatus } = useMinuteRoutines();
+
+  const [minuteRoutines, setMinuteRoutines] = useState<any[]>([]);
+  const [isRoutinesExpanded, setIsRoutinesExpanded] = useState(true);
+
+  // Load routines
+  useEffect(() => {
+    if (minuteId) {
+      getMinuteRoutines(minuteId).then(({ data }) => setMinuteRoutines(data));
+    }
+  }, [minuteId]);
+
+  const handleRoutineStatusChange = async (routineId: string, status: string) => {
+    // routineId here might be the routine definition ID or the minute_routine ID.
+    // In our merged data, `id` is either the minute_routine ID or `temp_${routine_id}`.
+    // But we need the actual routine_id from the project_routines table to upsert.
+
+    // Let's find the routine object in state to get the real IDs
+    const routineObj = minuteRoutines.find(r => r.id === routineId);
+    if (!routineObj) return;
+
+    const realRoutineId = routineObj.routine_id; // This comes from the merged object structure
+
+    await upsertMinuteRoutineStatus(minuteId!, realRoutineId, status, routineObj.notes);
+
+    // Optimistic update
+    setMinuteRoutines(minuteRoutines.map(r => r.id === routineId ? { ...r, status } : r));
+  };
+
+  const handleRoutineNotesChange = async (routineId: string, notes: string) => {
+    const routineObj = minuteRoutines.find(r => r.id === routineId);
+    if (!routineObj) return;
+
+    const realRoutineId = routineObj.routine_id;
+
+    // We debounce this in a real app, but for now direct update
+    await upsertMinuteRoutineStatus(minuteId!, realRoutineId, routineObj.status, notes);
+    setMinuteRoutines(minuteRoutines.map(r => r.id === routineId ? { ...r, notes } : r));
+  };
 
   const [newTasks, setNewTasks] = useState<NewTask[]>([]);
+  const [pendingTasksCount, setPendingTasksCount] = useState(0);
 
 
   const minute = getMinuteById(minuteId!);
@@ -52,6 +95,35 @@ export default function MinuteDetail() {
   const { resources } = useProjectResources(project?.id || '');
   const tasks = getTasksByMinute(minuteId!);
   const isLocked = minute?.status === 'in_progress' || minute?.status === 'final';
+
+  useEffect(() => {
+    if (minute?.project_id) {
+      countPendingTasks(minute.project_id).then(setPendingTasksCount);
+    }
+  }, [minute?.project_id]);
+
+  const handleImportPendingTasks = async () => {
+    if (!minute) return;
+    const supabase = (await import('../lib/supabase')).getSupabase();
+    if (supabase) {
+      const { data: pendingTasks } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('project_id', minute.project_id)
+        .is('minute_id', null)
+        .in('status', ['pending', 'in_progress']);
+
+      if (pendingTasks && pendingTasks.length > 0) {
+        const taskIds = pendingTasks.map(t => t.id);
+        await associateTasksToMinute(minuteId!, taskIds);
+        toast.success(`${taskIds.length} tareas pendientes vinculadas`);
+        await reloadTasks();
+        setPendingTasksCount(0);
+      } else {
+        toast.info('No hay tareas pendientes para vincular');
+      }
+    }
+  };
 
   const handleTaskSuccess = async () => {
     await reloadTasks();
@@ -183,6 +255,8 @@ export default function MinuteDetail() {
     return a.first_name.localeCompare(b.first_name);
   });
 
+  const [savingTasks, setSavingTasks] = useState(false);
+
   const handleSaveBatch = async () => {
     if (newTasks.length === 0) return;
 
@@ -193,6 +267,7 @@ export default function MinuteDetail() {
       return;
     }
 
+    setSavingTasks(true);
     try {
       for (const task of newTasks) {
         await createTask({
@@ -213,6 +288,8 @@ export default function MinuteDetail() {
       console.error('Error saving batch tasks:', error);
       const errorMessage = error instanceof Error ? error.message : 'Intenta de nuevo';
       toast.error(`Error al guardar las tareas: ${errorMessage}`);
+    } finally {
+      setSavingTasks(false);
     }
   };
 
@@ -290,6 +367,18 @@ export default function MinuteDetail() {
             >
               Editar Detalles
             </Button>
+
+            {minute?.status !== 'final' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar Acta
+              </Button>
+            )}
           </div>
 
           {/* 1. Agenda */}
@@ -508,11 +597,90 @@ export default function MinuteDetail() {
         </div>
       </div>
 
-      {/* 3. Acuerdos y Tareas */}
+      {/* 3. Seguimiento de Rutinas */}
+      <section className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">3</span>
+            Seguimiento de Rutinas
+          </h2>
+          <button
+            onClick={() => setIsRoutinesExpanded(!isRoutinesExpanded)}
+            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+          >
+            {isRoutinesExpanded ? 'Ocultar' : 'Mostrar'}
+            <ChevronDown className={`w-4 h-4 transition-transform ${isRoutinesExpanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {isRoutinesExpanded && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {minuteRoutines.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                No hay rutinas asociadas a este proyecto
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Rutina</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Observaciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {minuteRoutines.map((routine) => (
+                      <tr key={routine.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-gray-900">{routine.routine?.description}</p>
+                          <p className="text-xs text-gray-500 capitalize">{routine.routine?.frequency === 'daily' ? 'Diaria' : routine.routine?.frequency === 'weekly' ? 'Semanal' : 'Mensual'}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleRoutineStatusChange(routine.id, 'completed')}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${routine.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              Cumplido
+                            </button>
+                            <button
+                              onClick={() => handleRoutineStatusChange(routine.id, 'not_completed')}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${routine.status === 'not_completed' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              No Cumplido
+                            </button>
+                            <button
+                              onClick={() => handleRoutineStatusChange(routine.id, 'partial')}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${routine.status === 'partial' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              Parcial
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Input
+                            value={routine.notes || ''}
+                            onChange={(e) => handleRoutineNotesChange(routine.id, e.target.value)}
+                            placeholder="Agregar observación..."
+                            className="text-sm"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* 4. Acuerdos y Tareas */}
       <section className="mt-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">3</span>
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">4</span>
             Acuerdos y Tareas
           </h2>
           <div className="flex gap-2">
@@ -553,7 +721,27 @@ export default function MinuteDetail() {
                 <CheckCircle className="w-6 h-6 text-gray-400" />
               </div>
               <p className="text-gray-500 font-medium">No hay tareas registradas</p>
-              <p className="text-gray-400 text-sm mt-1">Las tareas creadas aparecerán aquí</p>
+
+              {pendingTasksCount > 0 ? (
+                <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4 max-w-md mx-auto">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-left">
+                      <p className="text-blue-900 font-medium mb-1">
+                        Hay {pendingTasksCount} tareas pendientes
+                      </p>
+                      <p className="text-blue-700 text-sm mb-3">
+                        Existen tareas de actas anteriores que aún no se han completado. ¿Deseas importarlas a esta acta?
+                      </p>
+                      <Button variant="primary" size="sm" onClick={handleImportPendingTasks}>
+                        Traer {pendingTasksCount} Pendientes
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm mt-1">Las tareas creadas aparecerán aquí</p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -733,6 +921,7 @@ export default function MinuteDetail() {
                   size="sm"
                   onClick={() => setNewTasks([])}
                   className="text-gray-500 hover:text-gray-700"
+                  disabled={savingTasks}
                 >
                   Cancelar
                 </Button>
@@ -740,9 +929,19 @@ export default function MinuteDetail() {
                   variant="primary"
                   size="sm"
                   onClick={handleSaveBatch}
+                  disabled={savingTasks}
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  Guardar Nuevas Tareas
+                  {savingTasks ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Guardar Nuevas Tareas
+                    </>
+                  )}
                 </Button>
               </div>
             )}
@@ -764,7 +963,49 @@ export default function MinuteDetail() {
         />
       )}
 
-      {/* Finalize Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="text-lg font-bold text-gray-900">Eliminar Acta</h3>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <p className="text-gray-600">
+                ¿Estás seguro de que deseas eliminar esta acta?
+              </p>
+              <p className="text-gray-600 text-sm bg-blue-50 p-3 rounded-md border border-blue-100">
+                <span className="font-bold text-blue-800">Nota importante:</span> Las tareas asociadas a esta acta <strong>NO se eliminarán</strong>. Quedarán como tareas pendientes del proyecto y podrás agregarlas a una nueva acta.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700 border-red-600"
+                onClick={async () => {
+                  try {
+                    await deleteMinute(minuteId!);
+                    toast.success('Acta eliminada correctamente');
+                    navigate('/minutes');
+                  } catch (error) {
+                    console.error('Error deleting minute:', error);
+                    toast.error('Error al eliminar el acta');
+                  }
+                }}
+              >
+                Eliminar Definitivamente
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showFinalizeDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">

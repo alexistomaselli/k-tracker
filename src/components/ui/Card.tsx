@@ -6,8 +6,8 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export default function Card({ variant = 'default', className = '', children, ...props }: CardProps) {
   const variants = {
-    default: 'bg-white rounded-lg shadow-md',
-    bordered: 'bg-white rounded-lg border-2 border-[#CBD5E1]',
+    default: 'bg-white dark:bg-gray-800 rounded-lg shadow-md',
+    bordered: 'bg-white dark:bg-gray-800 rounded-lg border-2 border-[#CBD5E1] dark:border-gray-700',
   };
 
   return (
@@ -19,7 +19,7 @@ export default function Card({ variant = 'default', className = '', children, ..
 
 export function CardHeader({ className = '', children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`px-6 py-4 border-b border-gray-200 ${className}`} {...props}>
+    <div className={`px-6 py-4 border-b border-gray-200 dark:border-gray-700 ${className}`} {...props}>
       {children}
     </div>
   );
@@ -35,7 +35,7 @@ export function CardContent({ className = '', children, ...props }: HTMLAttribut
 
 export function CardFooter({ className = '', children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`px-6 py-4 border-t border-gray-200 ${className}`} {...props}>
+    <div className={`px-6 py-4 border-t border-gray-200 dark:border-gray-700 ${className}`} {...props}>
       {children}
     </div>
   );
