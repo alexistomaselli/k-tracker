@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center mb-4">
-              <img src="/logo.png" alt="K-Tracker" className="h-24 w-auto" />
+              <img src="/kai-pro-logo.webp" alt="K-Tracker" className="h-48 w-auto" />
             </div>
             <p className="text-sm text-gray-600">
               Gestión inteligente de actas y tareas para empresas de construcción e ingeniería.
