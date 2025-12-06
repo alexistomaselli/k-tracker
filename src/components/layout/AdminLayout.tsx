@@ -4,11 +4,11 @@ import { useCurrentUser } from '../../hooks/useData';
 import { LayoutDashboard, Building2, CreditCard, LogOut, Package } from 'lucide-react';
 
 export default function AdminLayout() {
-    const { user, signOut } = useAuth();
-    const { isPlatformAdmin, loading } = useCurrentUser();
+    const { signOut } = useAuth();
+    const { user, isPlatformAdmin, loading } = useCurrentUser();
 
     if (loading) return <div className="p-8 text-center">Cargando...</div>;
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) return <Navigate to="/admin/login" replace />;
 
     // Enforce Platform Admin Role
     if (!isPlatformAdmin) {

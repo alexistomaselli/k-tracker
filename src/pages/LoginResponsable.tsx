@@ -7,9 +7,11 @@ import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
+import { useCurrentUser } from '../context/UserContext';
 
 export default function LoginResponsable() {
   const navigate = useNavigate();
+  const { reloadUser } = useCurrentUser();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -34,6 +36,8 @@ export default function LoginResponsable() {
       setError(error.message || 'Credenciales inválidas');
       return;
     }
+
+    await reloadUser();
     navigate('/my-tasks');
   };
 

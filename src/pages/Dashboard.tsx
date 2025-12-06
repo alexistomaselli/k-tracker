@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
-import { FolderKanban, FileText, AlertCircle, Plus } from 'lucide-react';
+import { FolderKanban, FileText, AlertCircle } from 'lucide-react';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { useCurrentUser, useDashboardStats } from '../hooks/useData';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
+
+import TourGuide from '../components/tour/TourGuide';
 
 export default function Dashboard() {
   const { participant: currentUserParticipant, isAdmin, company, loading: userLoading } = useCurrentUser();
@@ -142,26 +144,19 @@ export default function Dashboard() {
   // 2. Admin View (Existing Dashboard)
   return (
     <div className="space-y-6">
+      <TourGuide />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 id="dashboard-title" className="text-3xl font-bold text-gray-900">Dashboard</h1>
           {company?.name && (
             <p className="text-lg text-gray-700 font-medium">{company.name}</p>
           )}
           <p className="text-gray-600 mt-1">Resumen de tus proyectos y tareas</p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/minutes">
-            <Button variant="primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Acta
-            </Button>
-          </Link>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card id="active-projects-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -175,7 +170,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="recent-minutes-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -189,7 +184,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="pending-tasks-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -203,7 +198,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="overdue-tasks-card">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>

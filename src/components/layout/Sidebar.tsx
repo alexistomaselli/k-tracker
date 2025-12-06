@@ -70,6 +70,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <NavLink
                 key={link.to}
                 to={link.to}
+                id={`nav-${link.to.replace('/', '')}`}
                 className={({ isActive }) =>
                   `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${isActive
                     ? 'bg-[#0A4D8C] dark:bg-blue-600 text-white'

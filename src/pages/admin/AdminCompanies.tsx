@@ -21,10 +21,14 @@ interface Company {
     }[];
 }
 
+import { useSearchParams } from 'react-router-dom';
+
 export default function AdminCompanies() {
+    const [searchParams] = useSearchParams();
     const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [editingTrial, setEditingTrial] = useState<Company | null>(null);
     const [trialDaysInput, setTrialDaysInput] = useState('');
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -32,8 +36,12 @@ export default function AdminCompanies() {
     const toast = useToast();
 
     useEffect(() => {
+        const statusParam = searchParams.get('status');
+        if (statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected') {
+            setFilterStatus(statusParam);
+        }
         fetchCompanies();
-    }, []);
+    }, [searchParams]);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -115,9 +123,11 @@ export default function AdminCompanies() {
         }
     };
 
-    const filteredCompanies = companies.filter(company =>
-        company.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredCompanies = companies.filter(company => {
+        const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = filterStatus === 'all' || (company.approval_status || 'pending') === filterStatus;
+        return matchesSearch && matchesStatus;
+    });
 
     return (
         <div>
@@ -140,6 +150,16 @@ export default function AdminCompanies() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <select
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-transparent outline-none"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value as any)}
+                    >
+                        <option value="all">Todos</option>
+                        <option value="pending">Pendientes</option>
+                        <option value="approved">Aprobados</option>
+                        <option value="rejected">Rechazados</option>
+                    </select>
                 </div>
 
                 <div className="overflow-x-auto min-h-[400px]">

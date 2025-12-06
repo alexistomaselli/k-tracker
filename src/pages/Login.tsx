@@ -6,8 +6,10 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase';
+import { useCurrentUser } from '../context/UserContext';
 
 export default function Login() {
+  const { reloadUser } = useCurrentUser();
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -36,6 +38,9 @@ export default function Login() {
         setError(error.message || 'Credenciales inválidas');
         return;
       }
+
+      // Wait for UserContext to update with the new session
+      await reloadUser();
 
       if (data.user) {
         // 1. Check if user is platform admin

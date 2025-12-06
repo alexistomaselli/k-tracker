@@ -21,7 +21,8 @@ import { ToastProvider } from './context/ToastContext';
 import MyAccount from './pages/MyAccount';
 import Billing from './pages/Billing';
 import AdminLayout from './components/layout/AdminLayout';
-import { AdminDashboard } from './pages/admin/Placeholders';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminCompanies from './pages/admin/AdminCompanies';
 import AdminPlans from './pages/admin/AdminPlans';
 import AdminPayments from './pages/admin/AdminPayments';
@@ -69,6 +70,7 @@ function App() {
               </Route>
 
               {/* KAI PRO Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="companies" element={<AdminCompanies />} />

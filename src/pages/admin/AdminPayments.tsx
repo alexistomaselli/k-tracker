@@ -28,7 +28,10 @@ interface Payment {
     };
 }
 
+import { useSearchParams } from 'react-router-dom';
+
 export default function AdminPayments() {
+    const [searchParams] = useSearchParams();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
@@ -36,8 +39,12 @@ export default function AdminPayments() {
     const toast = useToast();
 
     useEffect(() => {
+        const statusParam = searchParams.get('status');
+        if (statusParam === 'pending' || statusParam === 'approved' || statusParam === 'rejected') {
+            setFilterStatus(statusParam);
+        }
         fetchPayments();
-    }, []);
+    }, [searchParams]);
 
     async function fetchPayments() {
         try {
