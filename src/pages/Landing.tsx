@@ -97,23 +97,24 @@ export default function Landing() {
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
-      <section className="bg-gradient-to-br from-[#0A4D8C] to-[#1B6FB3] text-white py-20 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+      <section className="relative text-white py-32 px-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/hero-bg.png')" }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A4D8C]/90 to-[#1B6FB3]/80 z-0"></div>
+        <div className="relative z-10 max-w-6xl mx-auto text-center">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 drop-shadow-lg">
             K-Tracker: Actas y Tareas para Obras
           </h1>
-          <p className="text-xl sm:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
+          <p className="text-xl sm:text-2xl mb-8 text-blue-50 max-w-3xl mx-auto drop-shadow-md">
             Centraliza la gestión de actas semanales y tareas de construcción en una sola plataforma intuitiva
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup">
-              <Button variant="secondary" size="lg" className="!bg-white !text-[#0A4D8C] hover:!bg-gray-100 w-full sm:w-auto">
+              <Button variant="secondary" size="lg" className="!bg-white !text-[#0A4D8C] hover:!bg-gray-100 w-full sm:w-auto shadow-lg">
                 Empieza Gratis
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
             <Link to="/signup">
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
+              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10 w-full sm:w-auto shadow-lg">
                 Solicitar Demo
               </Button>
             </Link>
