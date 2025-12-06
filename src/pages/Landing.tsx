@@ -107,7 +107,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup">
-              <Button variant="secondary" size="lg" className="bg-white text-[#0A4D8C] hover:bg-gray-100 w-full sm:w-auto">
+              <Button variant="secondary" size="lg" className="!bg-white !text-[#0A4D8C] hover:!bg-gray-100 w-full sm:w-auto">
                 Empieza Gratis
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
