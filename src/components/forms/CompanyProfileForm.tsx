@@ -48,8 +48,8 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
-                <Building className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Datos de la Empresa</h3>
+                <Building className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Datos de la Empresa</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -89,10 +89,11 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
                     onChange={handleChange}
                     placeholder="contacto@empresa.com"
                 />
+
             </div>
 
             {message && (
-                <div className={`p-4 rounded-md flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                <div className={`p-4 rounded-md flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                     }`}>
                     {message.type === 'success' ? (
                         <CheckCircle className="w-5 h-5" />

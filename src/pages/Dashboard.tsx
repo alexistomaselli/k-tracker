@@ -3,23 +3,25 @@ import { FolderKanban, FileText, AlertCircle, Plus } from 'lucide-react';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { useProjects, useMinutes, useTasks, useCurrentUser } from '../hooks/useData';
+import { useCurrentUser, useDashboardStats } from '../hooks/useData';
 import { isTaskOverdue, calculateDaysLeft } from '../hooks/useMockData';
 
 export default function Dashboard() {
-  const { projects } = useProjects();
-  const { minutes } = useMinutes();
-  const { tasks } = useTasks();
   const { participant: currentUserParticipant, isAdmin, company, loading: userLoading } = useCurrentUser();
+  const { stats, loading: statsLoading } = useDashboardStats();
 
-  if (userLoading) {
-    return <div className="p-8 text-center text-gray-500">Cargando...</div>;
+  if (userLoading || statsLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-32 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
   }
-
-  const activeProjects = projects.filter((p) => p.status === 'active').length;
-  const recentMinutes = minutes.slice(-5).reverse();
-  const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress');
-  const overdueTasks = pendingTasks.filter(isTaskOverdue);
 
   // 1. Participant View (ONLY if NOT admin)
   if (currentUserParticipant && !isAdmin) {
@@ -60,8 +62,8 @@ export default function Dashboard() {
     }
 
     // State B: Password Changed - Show Participant Dashboard (My Tasks)
-    const myTasks = tasks.filter(t => t.assignee_id === currentUserParticipant.id);
-    const myPendingTasks = myTasks.filter(t => t.status === 'pending' || t.status === 'in_progress');
+    const myTasks = stats.myTasks;
+    const myPendingTasksCount = stats.myPendingTasksCount;
 
     return (
       <div className="space-y-6">
@@ -81,7 +83,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Mis Pendientes</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{myPendingTasks.length}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{myPendingTasksCount}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                   <AlertCircle className="w-6 h-6 text-blue-600" />
@@ -100,7 +102,7 @@ export default function Dashboard() {
               <p className="text-gray-500 text-center py-8">No tienes tareas asignadas por el momento.</p>
             ) : (
               <div className="space-y-3">
-                {myTasks.map((task) => {
+                {myTasks.map((task: any) => {
                   const daysLeft = calculateDaysLeft(task.due_date);
                   const isOverdue = isTaskOverdue(task);
                   return (
@@ -113,7 +115,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{task.description}</p>
                           <p className="text-sm text-gray-500 mt-1">
-                            {projects.find(p => p.id === task.project_id)?.name}
+                            {task.project?.name || 'Sin proyecto'}
                           </p>
                         </div>
                         {isOverdue ? (
@@ -164,7 +166,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Proyectos Activos</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{activeProjects}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.activeProjects}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <FolderKanban className="w-6 h-6 text-blue-600" />
@@ -178,7 +180,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Actas Recientes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{minutes.length}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalMinutesCount}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <FileText className="w-6 h-6 text-green-600" />
@@ -192,8 +194,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tareas Pendientes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{pendingTasks.length}</p>
-                <p className="text-sm text-gray-500">de {tasks.length} totales</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingTasksCount}</p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-yellow-600" />
@@ -207,7 +208,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tareas Vencidas</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">{overdueTasks.length}</p>
+                <p className="text-3xl font-bold text-red-600 mt-2">{stats.overdueTasksCount}</p>
               </div>
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-red-600" />
@@ -223,12 +224,11 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-gray-900">Últimas Actas</h2>
           </CardHeader>
           <CardContent>
-            {recentMinutes.length === 0 ? (
+            {stats.recentMinutes.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No hay actas registradas</p>
             ) : (
               <div className="space-y-3">
-                {recentMinutes.map((minute) => {
-                  const project = projects.find((p) => p.id === minute.project_id);
+                {stats.recentMinutes.map((minute: any) => {
                   return (
                     <Link
                       key={minute.id}
@@ -240,7 +240,7 @@ export default function Dashboard() {
                           <p className="font-semibold text-gray-900">
                             Acta #{minute.minute_number}
                           </p>
-                          <p className="text-sm text-gray-600">{project?.name}</p>
+                          <p className="text-sm text-gray-600">{minute.project?.name || 'Sin proyecto'}</p>
                         </div>
                         <Badge variant={minute.status === 'final' ? 'completed' : 'draft'}>
                           {minute.status === 'final' ? 'Final' : 'Borrador'}
@@ -260,11 +260,11 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-gray-900">Tareas Urgentes</h2>
           </CardHeader>
           <CardContent>
-            {pendingTasks.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No hay tareas pendientes</p>
+            {stats.urgentTasks.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No hay tareas urgentes</p>
             ) : (
               <div className="space-y-3">
-                {pendingTasks.slice(0, 5).map((task) => {
+                {stats.urgentTasks.map((task: any) => {
                   const daysLeft = calculateDaysLeft(task.due_date);
                   const isOverdue = isTaskOverdue(task);
                   return (

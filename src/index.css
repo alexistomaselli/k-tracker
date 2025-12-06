@@ -28,6 +28,14 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+.dark {
+  --color-primary: #3B82F6; /* blue-500 */
+  --color-secondary: #60A5FA; /* blue-400 */
+  --color-background: #111827; /* gray-900 */
+  --color-text: #F3F4F6; /* gray-100 */
+  --color-gray-ui: #374151; /* gray-700 */
+}
+
 body {
   font-family: 'Inter', 'Open Sans', system-ui, -apple-system, sans-serif;
   color: var(--color-text);

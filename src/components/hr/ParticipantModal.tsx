@@ -87,6 +87,13 @@ export default function ParticipantModal({
             return;
         }
 
+
+        // Validate Area
+        if (!formData.area_id) {
+            setError('El campo Área es obligatorio.');
+            return;
+        }
+
         // Sanitize Phone: Remove everything except digits
         const sanitizedPhone = formData.phone ? formData.phone.replace(/\D/g, '') : '';
 
@@ -240,12 +247,13 @@ export default function ParticipantModal({
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Área
+                            Área *
                         </label>
                         <select
                             value={formData.area_id || ''}
                             onChange={(e) => setFormData({ ...formData, area_id: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            required
                         >
                             <option value="">Seleccionar Área</option>
                             {areas.map((area) => (

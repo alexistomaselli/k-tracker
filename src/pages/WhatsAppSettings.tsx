@@ -13,12 +13,10 @@ export default function WhatsAppSettings() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+    const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
     const toast = useToast();
 
-    // Evolution API Base URL - In a real app, this might be an env var or proxy
-    // We use the one provided by the user, but dynamically we might need to store it in the DB if it varies.
-    // For now, we assume the one used in n8n is the global one, but we need the one for the instance.
-    // Actually, the instance URL is usually the same base URL.
+    // Evolution API Base URL
     const EVOLUTION_API_URL = 'https://kai-pro-evolution-api.3znlkb.easypanel.host';
 
     const fetchConnectionState = useCallback(async (silent = false) => {
@@ -26,18 +24,69 @@ export default function WhatsAppSettings() {
 
         try {
             if (!silent) setLoading(true);
-            const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
+
+            // 1. Check connection state
+            const stateResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
                 headers: {
                     'apikey': company.evolution_api_key
                 }
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                // Evolution API returns { instance: { state: 'open' } }
-                setConnectionState(data.instance?.state || 'close');
+            if (stateResponse.ok) {
+                const stateData = await stateResponse.json();
+                const state = stateData.instance?.state || 'close';
+                setConnectionState(state);
+
+                if (state === 'open') {
+                    // 2. If open, fetch instance details to get the number
+                    try {
+                        const instanceResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${company.evolution_instance_name}`, {
+                            headers: {
+                                'apikey': company.evolution_api_key
+                            }
+                        });
+
+                        if (instanceResponse.ok) {
+                            const instanceData = await instanceResponse.json();
+                            console.log('Instance Data:', instanceData);
+
+                            let targetInstance: any = null;
+
+                            // 1. Try to find in top-level array or object
+                            const dataArray = Array.isArray(instanceData) ? instanceData : [instanceData];
+                            targetInstance = dataArray.find((i: any) =>
+                                i.name === company.evolution_instance_name ||
+                                i.instance?.instanceName === company.evolution_instance_name
+                            );
+
+                            // 2. If not found, check for nested 'data' property (common in some API versions)
+                            if (!targetInstance && instanceData.data) {
+                                const nestedArray = Array.isArray(instanceData.data) ? instanceData.data : [instanceData.data];
+                                targetInstance = nestedArray.find((i: any) =>
+                                    i.name === company.evolution_instance_name ||
+                                    i.instance?.instanceName === company.evolution_instance_name
+                                );
+                            }
+
+                            // 3. Extract number from ownerJid or owner
+                            const rawJid = targetInstance?.ownerJid || targetInstance?.instance?.owner || targetInstance?.owner;
+
+                            if (rawJid) {
+                                const number = rawJid.split('@')[0];
+                                setConnectedNumber(number);
+                            } else {
+                                setConnectedNumber(null);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error fetching instance details:', e);
+                    }
+                } else {
+                    setConnectedNumber(null);
+                }
             } else {
                 setConnectionState('offline');
+                setConnectedNumber(null);
             }
         } catch (err) {
             console.error('Error checking status:', err);
@@ -46,6 +95,10 @@ export default function WhatsAppSettings() {
             if (!silent) setLoading(false);
         }
     }, [company, EVOLUTION_API_URL]);
+
+    // ... (rest of the file)
+
+
 
     useEffect(() => {
         if (company?.evolution_instance_name) {
@@ -103,9 +156,11 @@ export default function WhatsAppSettings() {
                         integration: "WHATSAPP-BAILEYS",
                         webhook: {
                             enabled: true,
-                            url: "https://pkeyudivtcfbpjntkbyk.supabase.co/functions/v1/whatsapp-webhook",
+                            url: "https://kai-pro-n8n.3znlkb.easypanel.host/webhook/whatsapp-bot",
                             events: ["MESSAGES_UPSERT"]
-                        }
+                        },
+                        rejectCall: true,
+                        groupsIgnore: true
                     })
                 });
 
@@ -350,6 +405,11 @@ export default function WhatsAppSettings() {
                                 <CheckCircle className="w-10 h-10" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">¡WhatsApp Conectado!</h3>
+                            {connectedNumber && (
+                                <p className="text-lg font-medium text-gray-700 mb-2">
+                                    +{connectedNumber}
+                                </p>
+                            )}
                             <p className="text-gray-500 max-w-md mx-auto">
                                 Tu instancia está activa y lista para procesar mensajes. El bot responderá automáticamente a los participantes registrados.
                             </p>

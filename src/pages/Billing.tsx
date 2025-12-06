@@ -248,7 +248,7 @@ export default function Billing() {
 
     return (
         <div className="max-w-6xl mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Facturación y Suscripción</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Facturación y Suscripción</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 {/* Current Plan Card */}
@@ -256,21 +256,21 @@ export default function Billing() {
                     <div className="p-6">
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-700">Tu Plan Actual</h2>
-                                <p className="text-3xl font-bold text-[#0A4D8C] mt-2">
+                                <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Tu Plan Actual</h2>
+                                <p className="text-3xl font-bold text-[#0A4D8C] dark:text-blue-400 mt-2">
                                     {planName}
                                 </p>
-                                <p className="text-gray-500 text-sm mt-1">
+                                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                                     {planPrice}
                                 </p>
                             </div>
                             {statusBadge}
                         </div>
 
-                        <div className="border-t border-gray-100 pt-4 mt-4">
+                        <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mt-4">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm text-gray-600">Próximo Vencimiento:</span>
-                                <span className="font-medium">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">Próximo Vencimiento:</span>
+                                <span className="font-medium text-gray-900 dark:text-white">
                                     {isSubscriptionActive || isSubscriptionPastDue
                                         ? (subscription?.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'N/A')
                                         : (trialEndsAt.toLocaleDateString())
@@ -311,23 +311,23 @@ export default function Billing() {
                 {/* Usage Stats (Mocked for now) */}
                 <Card>
                     <div className="p-6">
-                        <h3 className="font-semibold text-gray-700 mb-4">Uso del Plan</h3>
+                        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-4">Uso del Plan</h3>
                         <div className="space-y-4">
                             <div>
                                 <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-gray-600">Usuarios</span>
-                                    <span className="font-medium">3 / {currentPlan?.limits?.users || 5}</span>
+                                    <span className="text-gray-600 dark:text-gray-400">Usuarios</span>
+                                    <span className="font-medium text-gray-900 dark:text-white">3 / {currentPlan?.limits?.users || 5}</span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                     <div className="bg-blue-500 h-2 rounded-full" style={{ width: '60%' }}></div>
                                 </div>
                             </div>
                             <div>
                                 <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-gray-600">Almacenamiento</span>
-                                    <span className="font-medium">1.2 GB / {currentPlan?.limits?.storage_gb || 5} GB</span>
+                                    <span className="text-gray-600 dark:text-gray-400">Almacenamiento</span>
+                                    <span className="font-medium text-gray-900 dark:text-white">1.2 GB / {currentPlan?.limits?.storage_gb || 5} GB</span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                     <div className="bg-green-500 h-2 rounded-full" style={{ width: '24%' }}></div>
                                 </div>
                             </div>
@@ -339,10 +339,10 @@ export default function Billing() {
             {/* Payment History */}
             < Card >
                 <div className="p-6">
-                    <h3 className="font-semibold text-gray-900 mb-4">Historial de Pagos</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Historial de Pagos</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="text-gray-500 bg-gray-50 uppercase">
+                            <thead className="text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 uppercase">
                                 <tr>
                                     <th className="px-4 py-3">Fecha</th>
                                     <th className="px-4 py-3">Monto</th>
@@ -351,17 +351,17 @@ export default function Billing() {
                                     <th className="px-4 py-3">Comprobante</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {payments.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-4 text-center text-gray-500">No hay pagos registrados</td>
+                                        <td colSpan={5} className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">No hay pagos registrados</td>
                                     </tr>
                                 ) : (
                                     payments.map((pay) => (
-                                        <tr key={pay.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                            <td className="px-4 py-3">{new Date(pay.created_at).toLocaleDateString()}</td>
-                                            <td className="px-4 py-3 font-medium">{subscription?.plans?.currency === 'PEN' ? 'S/' : '$'}{pay.amount}</td>
-                                            <td className="px-4 py-3 capitalize">{pay.method}</td>
+                                        <tr key={pay.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                            <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{new Date(pay.created_at).toLocaleDateString()}</td>
+                                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{subscription?.plans?.currency === 'PEN' ? 'S/' : '$'}{pay.amount}</td>
+                                            <td className="px-4 py-3 capitalize text-gray-900 dark:text-gray-300">{pay.method}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={pay.status === 'approved' ? 'completed' : pay.status === 'rejected' ? 'canceled' : 'pending'}>
                                                     {pay.status === 'approved' ? 'Aprobado' : pay.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
@@ -369,7 +369,7 @@ export default function Billing() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 {pay.proof_url && (
-                                                    <a href={pay.proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                    <a href={pay.proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
                                                         Ver
                                                     </a>
                                                 )}

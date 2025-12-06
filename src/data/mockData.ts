@@ -6,11 +6,13 @@ export interface Company {
   phone: string;
   address?: string;
   logo_url?: string;
+  created_at: string;
   trial_days?: number;
   approval_status?: 'pending' | 'approved' | 'rejected';
   evolution_instance_name?: string;
   evolution_api_key?: string;
   bot_unknown_reply_enabled?: boolean;
+  theme?: string;
 }
 
 export interface User {
@@ -130,13 +132,35 @@ export interface Activity {
   created_at: string;
 }
 
+export interface ProjectRoutine {
+  id: string;
+  project_id: string;
+  description: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'event';
+  assignee_id?: string;
+  company_id: string;
+  created_at?: string;
+}
+
+export interface MinuteRoutine {
+  id: string;
+  minute_id: string;
+  routine_id: string;
+  status: 'completed' | 'not_completed' | 'partial' | 'pending';
+  notes?: string;
+  created_at?: string;
+  routine?: ProjectRoutine;
+}
+
 export const mockCompanies: Company[] = [
   {
     id: 'c1',
     name: 'Constructora del Sur',
     tax_id: '20123456789',
     email: 'contacto@constructoradelsur.com',
-    phone: '+51987654321',
+    phone: '+54 9 11 1234 5678',
+    created_at: new Date().toISOString(),
+    theme: 'light',
   },
 ];
 

@@ -62,10 +62,21 @@ export default function HumanResources() {
                     updateData = rest;
                 }
 
+                // Fix area_id type mismatch: convert null to undefined if necessary
+                if (updateData.area_id === null) {
+                    updateData.area_id = undefined;
+                }
+
                 await updateParticipant(participantToEdit.id, updateData);
                 toast.success('Participante actualizado correctamente');
             } else {
-                const result = await createParticipant(data as Omit<Participant, 'id' | 'created_at'>);
+                // Fix area_id type mismatch for create
+                const createData = { ...data } as any;
+                if (createData.area_id === null) {
+                    createData.area_id = undefined;
+                }
+
+                const result = await createParticipant(createData as Omit<Participant, 'id' | 'created_at'>);
                 if (result && result.inviteSent) {
                     toast.success('Participante creado y correo de invitación enviado');
                 } else {
@@ -84,12 +95,12 @@ export default function HumanResources() {
         }
     };
 
-    const getAreaName = (areaId?: string) => {
+    const getAreaName = (areaId?: string | null) => {
         if (!areaId) return 'Sin Área';
         return areas.find(a => a.id === areaId)?.name || 'Sin Área';
     };
 
-    const getAreaColor = (areaId?: string) => {
+    const getAreaColor = (areaId?: string | null) => {
         if (!areaId) return '#9CA3AF';
         return areas.find(a => a.id === areaId)?.color || '#9CA3AF';
     };
@@ -101,15 +112,15 @@ export default function HumanResources() {
         (p.role && p.role.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    if (loading && participants.length === 0) return <div className="p-8 text-center text-gray-500">Cargando participantes...</div>;
+    if (loading && participants.length === 0) return <div className="p-8 text-center text-gray-500 dark:text-gray-400">Cargando participantes...</div>;
     if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>;
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Recursos Humanos</h1>
-                    <p className="text-gray-500">Gestiona el personal y los participantes de la empresa</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Recursos Humanos</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Gestiona el personal y los participantes de la empresa</p>
                 </div>
                 <button
                     onClick={handleCreate}
@@ -120,8 +131,8 @@ export default function HumanResources() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center gap-4">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                         <input
@@ -129,14 +140,14 @@ export default function HumanResources() {
                             placeholder="Buscar por nombre, email o cargo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         />
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <thead className="bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             <tr>
                                 <th className="px-6 py-3">Participante</th>
                                 <th className="px-6 py-3">Contacto</th>
@@ -144,34 +155,34 @@ export default function HumanResources() {
                                 <th className="px-6 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {filteredParticipants.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         No se encontraron participantes
                                     </td>
                                 </tr>
                             ) : (
                                 filteredParticipants.map((participant) => (
-                                    <tr key={participant.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={participant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                                                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg">
                                                     {participant.first_name[0]}{participant.last_name[0]}
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
                                                         {participant.title} {participant.first_name} {participant.last_name}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
                                                         {participant.active ? (
-                                                            <span className="text-green-600 flex items-center gap-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                                            <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span>
                                                                 Activo
                                                             </span>
                                                         ) : (
-                                                            <span className="text-gray-400 flex items-center gap-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                            <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
                                                                 Inactivo
                                                             </span>
                                                         )}
@@ -181,21 +192,21 @@ export default function HumanResources() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col gap-1">
-                                                <div className="flex items-center text-sm text-gray-500">
+                                                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                                                     <Mail size={14} className="mr-2" />
                                                     {participant.email}
                                                 </div>
                                                 {participant.phone ? (
-                                                    <div className="flex items-center text-sm text-gray-500">
+                                                    <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                                                         <Phone size={14} className="mr-2" />
                                                         {participant.phone}
-                                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="WhatsApp Configurado">
+                                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" title="WhatsApp Configurado">
                                                             <MessageCircle size={10} className="mr-1" />
                                                             WhatsApp
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center text-sm text-amber-600" title="Falta configurar WhatsApp">
+                                                    <div className="flex items-center text-sm text-amber-600 dark:text-amber-500" title="Falta configurar WhatsApp">
                                                         <AlertCircle size={14} className="mr-2" />
                                                         Sin WhatsApp
                                                     </div>
@@ -204,7 +215,7 @@ export default function HumanResources() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col gap-1">
-                                                <div className="flex items-center text-sm text-gray-900 font-medium">
+                                                <div className="flex items-center text-sm text-gray-900 dark:text-white font-medium">
                                                     <Briefcase size={14} className="mr-2 text-gray-400" />
                                                     {participant.role || 'Sin Cargo'}
                                                 </div>
@@ -222,14 +233,14 @@ export default function HumanResources() {
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => handleEdit(participant)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                                     title="Editar"
                                                 >
                                                     <Edit2 size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(participant.id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                                                     title="Eliminar"
                                                 >
                                                     <Trash2 size={18} />

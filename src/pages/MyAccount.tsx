@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { User, Mail, Building, Shield, Key, Building2, Phone, MessageCircle, AlertCircle } from 'lucide-react';
+import { User, Mail, Building, Shield, Key, Phone, MessageCircle, AlertCircle } from 'lucide-react';
 import Card, { CardContent, CardHeader } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useCurrentUser } from '../hooks/useData';
@@ -59,15 +59,15 @@ export default function MyAccount() {
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Mi Cuenta</h1>
-                <p className="text-gray-600 mt-1">Gestiona tu información personal y seguridad.</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mi Cuenta</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tu información personal y seguridad.</p>
             </div>
 
             {/* Personal Information (Read-Only for now) */}
             <Card>
                 <CardHeader>
-                    <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                        <User className="w-5 h-5 mr-2 text-blue-600" />
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                        <User className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
                         Información Personal
                     </h2>
                     {participant && (
@@ -80,16 +80,16 @@ export default function MyAccount() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Name */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Nombre Completo</label>
-                            <div className="text-gray-900 font-medium text-lg flex items-center">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre Completo</label>
+                            <div className="text-gray-900 dark:text-white font-medium text-lg flex items-center">
                                 {participant ? `${participant.first_name} ${participant.last_name} ` : 'N/A'}
                             </div>
                         </div>
 
                         {/* Email */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Correo Electrónico</label>
-                            <div className="text-gray-900 font-medium text-lg flex items-center">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Correo Electrónico</label>
+                            <div className="text-gray-900 dark:text-white font-medium text-lg flex items-center">
                                 <Mail className="w-4 h-4 mr-2 text-gray-400" />
                                 {user.email}
                             </div>
@@ -97,19 +97,19 @@ export default function MyAccount() {
 
                         {/* Phone / WhatsApp */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">WhatsApp / Teléfono</label>
-                            <div className="text-gray-900 font-medium text-lg flex items-center">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">WhatsApp / Teléfono</label>
+                            <div className="text-gray-900 dark:text-white font-medium text-lg flex items-center">
                                 {participant?.phone ? (
                                     <>
                                         <Phone className="w-4 h-4 mr-2 text-gray-400" />
                                         {participant.phone}
-                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="WhatsApp Configurado">
+                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" title="WhatsApp Configurado">
                                             <MessageCircle size={12} className="mr-1" />
                                             WhatsApp
                                         </span>
                                     </>
                                 ) : (
-                                    <div className="flex items-center text-amber-600 text-base">
+                                    <div className="flex items-center text-amber-600 dark:text-amber-500 text-base">
                                         <AlertCircle className="w-4 h-4 mr-2" />
                                         Sin configurar
                                     </div>
@@ -119,8 +119,8 @@ export default function MyAccount() {
 
                         {/* Role */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Rol</label>
-                            <div className="text-gray-900 font-medium text-lg flex items-center">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Rol</label>
+                            <div className="text-gray-900 dark:text-white font-medium text-lg flex items-center">
                                 <Shield className="w-4 h-4 mr-2 text-gray-400" />
                                 {isAdmin ? 'Administrador' : participant?.role || 'Participante'}
                             </div>
@@ -129,8 +129,8 @@ export default function MyAccount() {
                         {/* Company (Read-only for Participants) */}
                         {!isAdmin && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Empresa</label>
-                                <div className="text-gray-900 font-medium text-lg flex items-center">
+                                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Empresa</label>
+                                <div className="text-gray-900 dark:text-white font-medium text-lg flex items-center">
                                     <Building className="w-4 h-4 mr-2 text-gray-400" />
                                     {company?.name || 'Sin empresa asociada'}
                                 </div>
@@ -152,16 +152,16 @@ export default function MyAccount() {
             {/* Security */}
             <Card>
                 <CardHeader>
-                    <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                        <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                        <Shield className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
                         Seguridad
                     </h2>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-medium text-gray-900">Contraseña</p>
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="font-medium text-gray-900 dark:text-white">Contraseña</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Se recomienda cambiar tu contraseña periódicamente para mantener tu cuenta segura.
                             </p>
                         </div>

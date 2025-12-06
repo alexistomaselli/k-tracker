@@ -158,9 +158,8 @@ Deno.serve(async (req) => {
       }
 
       // Append debug info to the message for visibility
-      const debugMsg = `\n\n(Debug: Buscamos: ${candidates.join(', ')}. Error: ${userError?.message || 'None'})`
       const messageId = payload.originalPayload?.data?.key?.id || payload.data?.key?.id || ''
-      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador." + debugMsg, instanceNameFromPayload, messageId)
+      await sendWhatsAppMessage(remoteJid, "Lo siento, no estás registrado en K-Tracker. Contacta a tu administrador.", instanceNameFromPayload, messageId)
       return new Response(JSON.stringify({ status: 'unauthorized' }), { headers: { "Content-Type": "application/json" } })
     }
 

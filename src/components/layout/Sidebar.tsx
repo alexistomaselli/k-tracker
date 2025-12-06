@@ -53,15 +53,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen bg-white border-r border-gray-200 transition-transform duration-300 z-50 lg:z-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:sticky top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-transform duration-300 z-50 lg:z-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           } w-64`}
         role="complementary"
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">
-            <span className="text-lg font-semibold text-gray-900">Menú</span>
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 lg:hidden">
+            <span className="text-lg font-semibold text-gray-900 dark:text-white">Menú</span>
             <button onClick={onClose} aria-label="Cerrar menú">
-              <X className="w-6 h-6 text-gray-600" />
+              <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
 
@@ -72,8 +72,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 to={link.to}
                 className={({ isActive }) =>
                   `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${isActive
-                    ? 'bg-[#0A4D8C] text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-[#0A4D8C] dark:bg-blue-600 text-white'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
                 onClick={() => onClose()}
@@ -84,8 +84,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ))}
           </nav>
 
-          <div className="p-4 border-t border-gray-200">
-            <div className="text-xs text-gray-500">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               <p className="font-semibold">Constructora del Sur</p>
             </div>
           </div>

@@ -94,11 +94,11 @@ export default function SearchableSelect({
     return (
         <div className={`relative ${className}`} ref={wrapperRef}>
             <div
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white flex items-center justify-between cursor-pointer ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'hover:border-gray-400'
-                    } ${isOpen ? 'ring-2 ring-[#0A4D8C] border-[#0A4D8C]' : ''}`}
+                className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 flex items-center justify-between cursor-pointer ${disabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'hover:border-gray-400 dark:hover:border-gray-600'
+                    } ${isOpen ? 'ring-2 ring-[#0A4D8C] dark:ring-blue-500 border-[#0A4D8C] dark:border-blue-500' : ''}`}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
             >
-                <span className={`block truncate ${!selectedOption ? 'text-gray-500' : 'text-gray-900'}`}>
+                <span className={`block truncate ${!selectedOption ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
                     {selectedOption ? (
                         <>
                             <div className="flex items-center gap-2">
@@ -124,7 +124,7 @@ export default function SearchableSelect({
                     {selectedOption && !disabled && (
                         <div
                             onClick={clearSelection}
-                            className="p-0.5 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600"
+                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                         >
                             <X className="w-4 h-4" />
                         </div>
@@ -136,20 +136,20 @@ export default function SearchableSelect({
             {isOpen && !disabled && createPortal(
                 <div
                     id="searchable-select-dropdown"
-                    className="absolute z-[9999] bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                    className="absolute z-[9999] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto"
                     style={{
                         top: `${dropdownPosition.top + 4}px`,
                         left: `${dropdownPosition.left}px`,
                         width: `${dropdownPosition.width}px`,
                     }}
                 >
-                    <div className="sticky top-0 p-2 bg-white border-b border-gray-100">
+                    <div className="sticky top-0 p-2 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                         <div className="relative">
                             <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
                             <input
                                 ref={inputRef}
                                 type="text"
-                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-[#0A4D8C]"
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:border-[#0A4D8C] dark:focus:border-blue-500"
                                 placeholder="Buscar..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -159,14 +159,14 @@ export default function SearchableSelect({
                     </div>
                     <div className="py-1">
                         {filteredOptions.length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
                                 No se encontraron resultados
                             </div>
                         ) : (
                             filteredOptions.map((option) => (
                                 <div
                                     key={option.value}
-                                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${option.value === value ? 'bg-blue-50 text-[#0A4D8C] font-medium' : 'text-gray-700'
+                                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-700 ${option.value === value ? 'bg-blue-50 dark:bg-blue-900/30 text-[#0A4D8C] dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
                                         }`}
                                     onClick={() => handleSelect(option.value)}
                                 >
@@ -182,7 +182,7 @@ export default function SearchableSelect({
                                         )}
                                     </div>
                                     {option.description && (
-                                        <span className="ml-2 text-gray-500 text-xs">
+                                        <span className="ml-2 text-gray-500 dark:text-gray-400 text-xs">
                                             {option.description}
                                         </span>
                                     )}
