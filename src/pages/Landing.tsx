@@ -97,7 +97,7 @@ export default function Landing() {
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
-      <section className="relative text-white py-32 px-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/hero-bg.png')" }}>
+      <section className="relative text-white py-32 px-4 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/hero-2.webp')" }}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#0A4D8C]/90 to-[#1B6FB3]/80 z-0"></div>
         <div className="relative z-10 max-w-6xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 drop-shadow-lg">
