@@ -7,10 +7,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-[#0A4D8C] rounded-md flex items-center justify-center mr-2">
-                <span className="text-white font-bold text-lg">K</span>
-              </div>
-              <span className="text-xl font-bold text-[#0A4D8C]">K-Tracker</span>
+              <img src="/logo.png" alt="K-Tracker" className="h-10 w-auto" />
             </div>
             <p className="text-sm text-gray-600">
               Gestión inteligente de actas y tareas para empresas de construcción e ingeniería.

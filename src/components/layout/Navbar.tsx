@@ -30,21 +30,20 @@ export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout,
               </button>
             )}
             <Link to="/" className="flex items-center">
-              <div className="w-8 h-8 bg-[#0A4D8C] dark:bg-blue-600 rounded-md flex items-center justify-center mr-2">
-                <span className="text-white font-bold text-lg">K</span>
-              </div>
-              <span className="text-xl font-bold text-[#0A4D8C] dark:text-blue-400">K-Tracker</span>
+              <img src="/logo.png" alt="K-Tracker" className="h-10 w-auto" />
             </Link>
           </div>
 
           <div className="flex items-center space-x-4">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label="Cambiar tema"
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label="Cambiar tema"
+              >
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </button>
+            )}
 
             {!isAuthenticated ? (
               <>
