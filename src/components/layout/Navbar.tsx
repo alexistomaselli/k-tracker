@@ -30,7 +30,7 @@ export default function Navbar({ isAuthenticated = false, onMenuClick, onLogout,
               </button>
             )}
             <Link to="/" className="flex items-center">
-              <img src="/kai-pro-logo.webp" alt="K-Tracker" className="h-24 w-auto" />
+              <img src="/kai-pro-logo.webp" alt="K-Tracker" className="h-16 w-auto" />
             </Link>
           </div>
 
