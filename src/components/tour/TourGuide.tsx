@@ -19,17 +19,17 @@ export default function TourGuide() {
                     {
                         element: '#dashboard-title',
                         popover: {
-                            title: 'Bienvenido a K-Tracker',
-                            description: 'Este es tu panel de control principal. Aquí verás un resumen de tu actividad.',
+                            title: 'Bienvenido al Panel de Empresa',
+                            description: 'Este es tu centro de control con un resumen de tu actividad.',
                             side: 'bottom',
                             align: 'start'
                         }
                     },
                     {
-                        element: '#nav-projects',
+                        element: '#nav-whatsapp',
                         popover: {
-                            title: 'Crear Proyecto',
-                            description: 'Gestiona tus obras y proyectos. Crea nuevos proyectos y asigna responsables.',
+                            title: '1. Conexión a WhatsApp',
+                            description: 'Configura tu WhatsApp para que tu equipo gestione tareas con tu bot.',
                             side: 'right',
                             align: 'start'
                         }
@@ -37,8 +37,8 @@ export default function TourGuide() {
                     {
                         element: '#nav-areas',
                         popover: {
-                            title: 'Crear Rutinas',
-                            description: 'Define las áreas de trabajo y rutinas para estandarizar tus procesos.',
+                            title: '2. Gestión de Áreas',
+                            description: 'Gestiona las áreas para asignarlas a un responsable.',
                             side: 'right',
                             align: 'start'
                         }
@@ -46,8 +46,17 @@ export default function TourGuide() {
                     {
                         element: '#nav-hr',
                         popover: {
-                            title: 'Gestión de Recursos Humanos',
-                            description: 'Administra tu personal, roles y permisos dentro de la plataforma.',
+                            title: '3. Recursos Humanos',
+                            description: 'Gestiona tu equipo de trabajo para asignarles proyectos y tareas.',
+                            side: 'right',
+                            align: 'start'
+                        }
+                    },
+                    {
+                        element: '#nav-projects',
+                        popover: {
+                            title: '4. Proyectos',
+                            description: 'Crea y administra tus proyectos de construcción.',
                             side: 'right',
                             align: 'start'
                         }
@@ -55,8 +64,18 @@ export default function TourGuide() {
                     {
                         element: '#nav-minutes',
                         popover: {
-                            title: 'Crear Actas',
-                            description: 'Genera actas de reunión profesionales y compártelas con tu equipo.',
+                            title: '5. Crea Actas',
+                            description: 'Dentro de los proyectos, genera actas para documentar compromisos.',
+                            side: 'right',
+                            align: 'start'
+                        }
+                    },
+
+                    {
+                        element: '#nav-my-tasks',
+                        popover: {
+                            title: '6. Gestiona Tareas',
+                            description: 'Dentro de las actas, gestiona y asigna tareas a los participantes.',
                             side: 'right',
                             align: 'start'
                         }
@@ -64,45 +83,18 @@ export default function TourGuide() {
                     {
                         element: '#nav-my-tasks',
                         popover: {
-                            title: 'Crear Tareas',
-                            description: 'Asigna tareas, establece fechas límite y da seguimiento al progreso.',
+                            title: '7. Comentarios',
+                            description: 'Dentro de las tareas, añade comentarios para seguimiento detallado.',
                             side: 'right',
                             align: 'start'
                         }
                     },
                     {
-                        element: '#active-projects-card',
+                        element: '#nav-billing',
                         popover: {
-                            title: 'Resumen de Proyectos',
-                            description: 'Visualiza rápidamente cuántos proyectos tienes activos.',
-                            side: 'bottom',
-                            align: 'start'
-                        }
-                    },
-                    {
-                        element: '#recent-minutes-card',
-                        popover: {
-                            title: 'Actas Recientes',
-                            description: 'Accede rápidamente al historial de tus últimas actas generadas.',
-                            side: 'bottom',
-                            align: 'start'
-                        }
-                    },
-                    {
-                        element: '#pending-tasks-card',
-                        popover: {
-                            title: 'Tareas Pendientes',
-                            description: 'Mantén el control de todas las tareas que aún no se han completado.',
-                            side: 'bottom',
-                            align: 'start'
-                        }
-                    },
-                    {
-                        element: '#overdue-tasks-card',
-                        popover: {
-                            title: 'Tareas Vencidas',
-                            description: 'Identifica las tareas críticas que requieren atención inmediata.',
-                            side: 'bottom',
+                            title: '8. Suscripción y Pagos',
+                            description: 'Notifica tus pagos de suscripción y gestiona tu plan.',
+                            side: 'right',
                             align: 'start'
                         }
                     },
