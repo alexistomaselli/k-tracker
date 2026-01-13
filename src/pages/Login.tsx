@@ -18,6 +18,7 @@ export default function Login() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const showVerifyNotice = new URLSearchParams(location.search).has('verifyEmail');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,16 +27,23 @@ export default function Login() {
       navigate('/dashboard');
       return;
     }
+
+    setIsSubmitting(true);
     setError('');
-    const supabase = getSupabase()!;
-    const email = formData.email.trim();
-    const password = formData.password.trim();
 
     try {
+      const supabase = getSupabase()!;
+      const email = formData.email.trim();
+      const password = formData.password.trim();
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        setError(error.message || 'Credenciales inválidas');
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Correo o contraseña incorrectos');
+        } else {
+          setError(error.message || 'Error al iniciar sesión');
+        }
         return;
       }
 
@@ -73,6 +81,8 @@ export default function Login() {
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
       setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -145,7 +155,7 @@ export default function Login() {
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
-              <Button type="submit" variant="primary" className="w-full mt-6">
+              <Button type="submit" variant="primary" className="w-full mt-6" isLoading={isSubmitting}>
                 Iniciar Sesión
               </Button>
             </form>

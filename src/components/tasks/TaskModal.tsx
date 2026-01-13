@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import SearchableSelect from '../ui/SearchableSelect';
-import { useParticipants, useTaskActions, useAreas, useParticipantActions } from '../../hooks/useData';
+import { useParticipants, useTaskActions, useAreas, useParticipantActions, useProjectResources } from '../../hooks/useData';
 import { Task } from '../../data/mockData';
 
 interface TaskModalProps {
@@ -27,6 +27,12 @@ export default function TaskModal({
     const { createTask, updateTask } = useTaskActions();
     const { updateParticipant } = useParticipantActions();
     const { areas } = useAreas();
+    const { resources } = useProjectResources(projectId);
+
+    // Filter participants to only show those assigned to the project
+    const projectParticipants = resources.sort((a, b) => {
+        return a.first_name.localeCompare(b.first_name);
+    });
 
     const [formData, setFormData] = useState({
         description: '',
@@ -183,15 +189,17 @@ export default function TaskModal({
                                 Responsable
                             </label>
                             <SearchableSelect
-                                options={participants.map(p => {
-                                    const area = areas.find(a => a.id === p.area_id);
-                                    return {
-                                        value: p.id,
-                                        label: `${p.first_name} ${p.last_name}`,
-                                        description: p.title,
-                                        badge: area ? { text: area.name, color: area.color } : undefined
-                                    };
-                                })}
+                                options={(projectParticipants || [])
+                                    .filter(p => resources.some(r => r.id === p.id))
+                                    .map(p => {
+                                        const area = areas?.find(a => a.id === p.area_id);
+                                        return {
+                                            value: p.id,
+                                            label: `${p.first_name} ${p.last_name}`,
+                                            description: p.title,
+                                            badge: area ? { text: area.name, color: area.color } : undefined
+                                        };
+                                    })}
                                 value={formData.assigneeId}
                                 onChange={handleAssigneeChange}
                                 placeholder="Sin responsable"

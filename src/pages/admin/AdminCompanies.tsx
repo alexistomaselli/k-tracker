@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Clock, MoreVertical, ShieldCheck, Ban } from 'lucide-react';
+import { Search, Clock, MoreVertical, ShieldCheck, Ban, Eye } from 'lucide-react';
+import CompanyDetailModal from '../../components/admin/CompanyDetailModal';
 import { getSupabase } from '../../lib/supabase';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -10,11 +11,15 @@ interface Company {
     id: string;
     name: string;
     email: string;
+    tax_id?: string;
+    phone?: string;
+    address?: string;
     approval_status: 'pending' | 'approved' | 'rejected';
     trial_days: number;
     created_at: string;
     subscriptions?: {
         status: string;
+        end_date?: string;
         plans?: {
             name: string;
         };
@@ -22,6 +27,7 @@ interface Company {
 }
 
 import { useSearchParams } from 'react-router-dom';
+import { Participant } from '../../data/mockData';
 
 export default function AdminCompanies() {
     const [searchParams] = useSearchParams();
@@ -32,6 +38,9 @@ export default function AdminCompanies() {
     const [editingTrial, setEditingTrial] = useState<Company | null>(null);
     const [trialDaysInput, setTrialDaysInput] = useState('');
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
+    const [adminUser, setAdminUser] = useState<Participant | null>(null);
+    const [loadingAdmin, setLoadingAdmin] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const toast = useToast();
 
@@ -65,12 +74,13 @@ export default function AdminCompanies() {
                 .from('company')
                 .select(`
           *,
-          subscriptions (
-            status,
-            plans (
-              name
-            )
-          )
+            subscriptions (
+                status,
+                end_date,
+                plans (
+                  name
+                )
+              )
         `)
                 .order('created_at', { ascending: false });
 
@@ -189,18 +199,21 @@ export default function AdminCompanies() {
                             ) : (
                                 filteredCompanies.map((company) => {
                                     const subscription = company.subscriptions?.[0];
-                                    const planName = subscription?.plans?.name || 'Plan Trial';
+                                    const now = new Date();
+                                    const isSubscriptionExpired = subscription?.end_date ? new Date(subscription.end_date) < now : false;
+                                    const hasActiveSubscription = subscription?.status === 'active' && !isSubscriptionExpired;
+                                    const planName = subscription?.plans?.name || 'Plan Inicial'; // Changed default to 'Plan Inicial' per user context
                                     const approvalStatus = company.approval_status || 'pending';
-                                    const trialDaysTotal = company.trial_days || 14;
 
-                                    // Calculate remaining trial days
+                                    // Trial calculations
+                                    const trialDaysTotal = company.trial_days || 14;
                                     const createdAt = new Date(company.created_at);
                                     const trialEndsAt = new Date(createdAt);
                                     trialEndsAt.setDate(createdAt.getDate() + trialDaysTotal);
-                                    const now = new Date();
                                     const diffTime = trialEndsAt.getTime() - now.getTime();
                                     const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                                     const displayDays = remainingDays > 0 ? remainingDays : 0;
+                                    const isTrialExpired = remainingDays <= 0;
 
                                     const isMenuOpen = openMenuId === company.id;
 
@@ -225,9 +238,36 @@ export default function AdminCompanies() {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="font-medium text-gray-700">{planName}</span>
-                                                    <span className={`text-xs ${displayDays > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                        {displayDays > 0 ? `Quedan ${displayDays} días` : 'Trial vencido'}
-                                                    </span>
+                                                    {hasActiveSubscription ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs text-blue-600 font-medium">
+                                                                Suscripción Activa
+                                                            </span>
+                                                            {subscription?.end_date && (
+                                                                <span className="text-[10px] text-gray-400">
+                                                                    Vence: {new Date(subscription.end_date).toLocaleDateString()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col">
+                                                            {/* Show expired subscription explicitly if it exists but is expired */}
+                                                            {subscription?.status === 'active' && isSubscriptionExpired ? (
+                                                                <span className="text-xs text-red-600 font-bold mb-1">
+                                                                    Suscripción Vencida
+                                                                    {subscription?.end_date && (
+                                                                        <span className="block text-[10px] text-gray-500 font-normal">
+                                                                            Venció: {new Date(subscription.end_date).toLocaleDateString()}
+                                                                        </span>
+                                                                    )}
+                                                                </span>
+                                                            ) : (
+                                                                <span className={`text-xs ${!isTrialExpired ? 'text-green-600' : 'text-red-500'}`}>
+                                                                    {!isTrialExpired ? `Quedan ${displayDays} días de prueba` : 'Trial vencido'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-500">
@@ -319,6 +359,15 @@ export default function AdminCompanies() {
                         </form>
                     </div>
                 </div>
+            )}
+            {viewingCompany && (
+                <CompanyDetailModal
+                    isOpen={!!viewingCompany}
+                    onClose={() => setViewingCompany(null)}
+                    company={viewingCompany}
+                    adminParticipant={adminUser}
+                    loadingAdmin={loadingAdmin}
+                />
             )}
         </div>
     );

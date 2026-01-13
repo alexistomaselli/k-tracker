@@ -48,20 +48,34 @@ export default function SelectPlan() {
     const [paymentMethod] = useState('transfer');
     const [paymentProof, setPaymentProof] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [activePlanId, setActivePlanId] = useState<string | null>(null);
+    const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
     const [pendingPayment, setPendingPayment] = useState<Payment | null>(null);
 
     const checkPendingPayment = useCallback(async () => {
         if (!company) return;
         const supabase = getSupabase();
 
-        // Find subscription
+        // Find subscription (active or past_due)
+        // Matching logic from Billing.tsx which uses .single()
+        // We use maybeSingle() to be safe but trust it returns the relevant one
         const { data: sub } = await supabase!
             .from('subscriptions')
-            .select('id')
+            .select('id, plan_id, status, end_date')
             .eq('company_id', company.id)
             .maybeSingle();
 
         if (sub) {
+            // Set active plan if subscription is active or past_due
+            setActivePlanId(sub.plan_id);
+
+            // Check strict expiration
+            if (sub.end_date) {
+                const now = new Date();
+                const endDate = new Date(sub.end_date);
+                setIsSubscriptionExpired(endDate < now);
+            }
+
             const { data: payment } = await supabase!
                 .from('payments')
                 .select('*')
@@ -352,36 +366,50 @@ export default function SelectPlan() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-                        {plans.map((plan) => (
-                            <Card key={plan.id} className={`relative flex flex-col ${selectedPlan?.id === plan.id ? 'ring-2 ring-blue-500' : ''}`}>
-                                <div className="p-6 flex-1 flex flex-col">
-                                    <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
-                                    <p className="mt-4 flex items-baseline text-gray-900">
-                                        <span className="text-4xl font-extrabold tracking-tight">{plan.currency === 'PEN' ? 'S/' : '$'}{plan.price}</span>
-                                        <span className="ml-1 text-xl font-semibold text-gray-500">/mes</span>
-                                    </p>
-                                    <p className="mt-6 text-gray-500">{plan.description}</p>
+                        {plans.map((plan) => {
+                            const isCurrentPlan = activePlanId === plan.id;
 
-                                    <ul role="list" className="mt-6 space-y-4 flex-1">
-                                        {plan.features?.map((feature: string, index: number) => (
-                                            <li key={index} className="flex">
-                                                <Check className="flex-shrink-0 w-5 h-5 text-green-500" />
-                                                <span className="ml-3 text-gray-500">{feature}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                <div className="p-6 bg-gray-50 rounded-b-lg">
-                                    <Button
-                                        className="w-full"
-                                        onClick={() => handleSelectPlan(plan)}
-                                        variant="primary"
-                                    >
-                                        Seleccionar {plan.name}
-                                    </Button>
-                                </div>
-                            </Card>
-                        ))}
+                            return (
+                                <Card key={plan.id} className={`relative flex flex-col ${selectedPlan?.id === plan.id || isCurrentPlan ? 'ring-2 ring-blue-500' : ''}`}>
+                                    {isCurrentPlan && (
+                                        <div className="absolute top-0 right-0 -mt-2 -mr-2">
+                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                                                Plan Actual
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="p-6 flex-1 flex flex-col">
+                                        <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
+                                        <p className="mt-4 flex items-baseline text-gray-900">
+                                            <span className="text-4xl font-extrabold tracking-tight">{plan.currency === 'PEN' ? 'S/' : '$'}{plan.price}</span>
+                                            <span className="ml-1 text-xl font-semibold text-gray-500">/mes</span>
+                                        </p>
+                                        <p className="mt-6 text-gray-500">{plan.description}</p>
+
+                                        <ul role="list" className="mt-6 space-y-4 flex-1">
+                                            {plan.features?.map((feature: string, index: number) => (
+                                                <li key={index} className="flex">
+                                                    <Check className="flex-shrink-0 w-5 h-5 text-green-500" />
+                                                    <span className="ml-3 text-gray-500">{feature}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    <div className="p-6 bg-gray-50 rounded-b-lg">
+                                        <Button
+                                            className="w-full"
+                                            onClick={() => handleSelectPlan(plan)}
+                                            variant={isCurrentPlan && !isSubscriptionExpired ? 'outline' : 'primary'}
+                                            disabled={isCurrentPlan && !isSubscriptionExpired}
+                                        >
+                                            {isCurrentPlan
+                                                ? (isSubscriptionExpired ? 'Renovar Plan' : 'Plan Actual')
+                                                : `Seleccionar ${plan.name}`}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            )
+                        })}
                     </div>
                 )}
             </div>

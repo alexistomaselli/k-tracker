@@ -142,6 +142,15 @@ export interface ProjectRoutine {
   created_at?: string;
 }
 
+export interface UserTour {
+  id: string;
+  user_id: string;
+  tour_key: string;
+  completed_at: string;
+  skipped: boolean;
+  created_at: string;
+}
+
 export interface MinuteRoutine {
   id: string;
   minute_id: string;

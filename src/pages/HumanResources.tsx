@@ -9,7 +9,7 @@ export default function HumanResources() {
     const { participants, loading, error, reloadParticipants } = useParticipants();
     const { createParticipant, updateParticipant, deleteParticipant } = useParticipantActions();
     const { areas } = useAreas();
-    const { user } = useCurrentUser();
+    const { user, company } = useCurrentUser();
     const toast = useToast();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,16 +67,15 @@ export default function HumanResources() {
                     updateData.area_id = undefined;
                 }
 
-                await updateParticipant(participantToEdit.id, updateData);
+                await updateParticipant(participantToEdit.id, updateData as any);
                 toast.success('Participante actualizado correctamente');
             } else {
-                // Fix area_id type mismatch for create
                 const createData = { ...data } as any;
                 if (createData.area_id === null) {
                     createData.area_id = undefined;
                 }
 
-                const result = await createParticipant(createData as Omit<Participant, 'id' | 'created_at'>);
+                const result = await createParticipant(createData);
                 if (result && result.inviteSent) {
                     toast.success('Participante creado y correo de invitación enviado');
                 } else {
@@ -163,92 +162,112 @@ export default function HumanResources() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredParticipants.map((participant) => (
-                                    <tr key={participant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg">
-                                                    {participant.first_name[0]}{participant.last_name[0]}
-                                                </div>
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {participant.title} {participant.first_name} {participant.last_name}
+                                filteredParticipants.map((participant: Participant) => {
+                                    const fullName = `${participant.first_name} ${participant.last_name}`.trim();
+                                    const isCompanyRecord =
+                                        (participant.email && company?.email && participant.email.toLowerCase().trim() === company.email.toLowerCase().trim()) ||
+                                        (fullName === `Admin ${company?.name}`);
+
+                                    return (
+                                        <tr key={participant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg">
+                                                        {participant.first_name[0]}{participant.last_name[0]}
                                                     </div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                        {participant.active ? (
-                                                            <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span>
-                                                                Activo
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
-                                                                Inactivo
-                                                            </span>
-                                                        )}
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                            {participant.title} {participant.first_name} {participant.last_name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {isCompanyRecord ? (
+                                                                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                                                    Propietario
+                                                                </span>
+                                                            ) : !participant.active ? (
+                                                                <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+                                                                    Inactivo
+                                                                </span>
+                                                            ) : !participant.password_changed ? (
+                                                                <span className="text-amber-500 dark:text-amber-400 flex items-center gap-1" title="El usuario aún no ha aceptado la invitación por correo">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
+                                                                    Invitación Pendiente
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span>
+                                                                    Activo
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                                                    <Mail size={14} className="mr-2" />
-                                                    {participant.email}
-                                                </div>
-                                                {participant.phone ? (
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-1">
                                                     <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                                                        <Phone size={14} className="mr-2" />
-                                                        {participant.phone}
-                                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" title="WhatsApp Configurado">
-                                                            <MessageCircle size={10} className="mr-1" />
-                                                            WhatsApp
+                                                        <Mail size={14} className="mr-2" />
+                                                        {participant.email}
+                                                    </div>
+                                                    {participant.phone ? (
+                                                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                                            <Phone size={14} className="mr-2" />
+                                                            {participant.phone}
+                                                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" title="WhatsApp Configurado">
+                                                                <MessageCircle size={10} className="mr-1" />
+                                                                WhatsApp
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        !isCompanyRecord && (
+                                                            <div className="flex items-center text-sm text-amber-600 dark:text-amber-500" title="Falta configurar WhatsApp">
+                                                                <AlertCircle size={14} className="mr-2" />
+                                                                Sin WhatsApp
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center text-sm text-gray-900 dark:text-white font-medium">
+                                                        <Briefcase size={14} className="mr-2 text-gray-400" />
+                                                        {participant.role || 'Sin Cargo'}
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span
+                                                            className="px-2 py-0.5 text-xs rounded-full text-white"
+                                                            style={{ backgroundColor: getAreaColor(participant.area_id) }}
+                                                        >
+                                                            {getAreaName(participant.area_id)}
                                                         </span>
                                                     </div>
-                                                ) : (
-                                                    <div className="flex items-center text-sm text-amber-600 dark:text-amber-500" title="Falta configurar WhatsApp">
-                                                        <AlertCircle size={14} className="mr-2" />
-                                                        Sin WhatsApp
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                {!isCompanyRecord && (
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleEdit(participant)}
+                                                            className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                                            title="Editar"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(participant.id)}
+                                                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                                            title="Eliminar"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
                                                     </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center text-sm text-gray-900 dark:text-white font-medium">
-                                                    <Briefcase size={14} className="mr-2 text-gray-400" />
-                                                    {participant.role || 'Sin Cargo'}
-                                                </div>
-                                                <div className="flex items-center">
-                                                    <span
-                                                        className="px-2 py-0.5 text-xs rounded-full text-white"
-                                                        style={{ backgroundColor: getAreaColor(participant.area_id) }}
-                                                    >
-                                                        {getAreaName(participant.area_id)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(participant)}
-                                                    className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(participant.id)}
-                                                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

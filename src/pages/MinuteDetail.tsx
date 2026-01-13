@@ -92,7 +92,7 @@ export default function MinuteDetail() {
 
   const minute = getMinuteById(minuteId!);
   const project = minute ? getProjectById(minute.project_id) : null;
-  const { resources } = useProjectResources(project?.id || '');
+  const { resources: projectResources } = useProjectResources(minute?.project_id || '');
   const tasks = getTasksByMinute(minuteId!);
   const isLocked = minute?.status === 'in_progress' || minute?.status === 'final';
 
@@ -246,14 +246,12 @@ export default function MinuteDetail() {
     }
   };
 
-  // Sort participants: Project resources first, then others
-  const sortedParticipants = [...participants].sort((a, b) => {
-    const aIsResource = resources.some(r => r.id === a.id);
-    const bIsResource = resources.some(r => r.id === b.id);
-    if (aIsResource && !bIsResource) return -1;
-    if (!aIsResource && bIsResource) return 1;
+  // Filter participants: Only show those assigned to the project
+  const projectParticipants = projectResources.sort((a, b) => {
     return a.first_name.localeCompare(b.first_name);
   });
+
+
 
   const [savingTasks, setSavingTasks] = useState(false);
 
@@ -840,15 +838,17 @@ export default function MinuteDetail() {
                       </td>
                       <td className="py-2 px-2">
                         <SearchableSelect
-                          options={(sortedParticipants || []).map(p => {
-                            const area = areas?.find(a => a.id === p.area_id);
-                            return {
-                              value: p.id,
-                              label: `${p.first_name} ${p.last_name}`,
-                              description: p.title,
-                              badge: area ? { text: area.name, color: area.color } : undefined
-                            };
-                          })}
+                          options={(projectParticipants || [])
+                            .filter(p => projectResources.some(r => r.id === p.id))
+                            .map(p => {
+                              const area = areas?.find(a => a.id === p.area_id);
+                              return {
+                                value: p.id,
+                                label: `${p.first_name} ${p.last_name}`,
+                                description: p.title,
+                                badge: area ? { text: area.name, color: area.color } : undefined
+                              };
+                            })}
                           value={task.assignee_id || ''}
                           onChange={(value) => handleUpdateNewTask(index, 'assignee_id', value)}
                           placeholder="Responsable"

@@ -127,3 +127,11 @@ export function isTaskOverdue(task: Task): boolean {
   }
   return calculateDaysLeft(task.due_date) < 0;
 }
+
+export function calculateTrialDaysLeft(createdAt: string, trialDuration: number = 14): number {
+  const start = new Date(createdAt);
+  const now = new Date();
+  const diffTime = now.getTime() - start.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(0, trialDuration - diffDays);
+}

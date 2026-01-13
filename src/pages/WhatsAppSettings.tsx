@@ -16,17 +16,32 @@ export default function WhatsAppSettings() {
     const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
     const toast = useToast();
 
-    // Evolution API Base URL
-    const EVOLUTION_API_URL = 'https://kai-pro-evolution-api.3znlkb.easypanel.host';
+    const [evolutionApiUrl, setEvolutionApiUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const supabase = getSupabase();
+            const { data } = await supabase!
+                .from('platform_settings')
+                .select('value')
+                .eq('key', 'evolution_api_url')
+                .single();
+
+            if (data?.value) {
+                setEvolutionApiUrl(data.value);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const fetchConnectionState = useCallback(async (silent = false) => {
-        if (!company?.evolution_instance_name || !company?.evolution_api_key) return;
+        if (!company?.evolution_instance_name || !company?.evolution_api_key || !evolutionApiUrl) return;
 
         try {
             if (!silent) setLoading(true);
 
             // 1. Check connection state
-            const stateResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
+            const stateResponse = await fetch(`${evolutionApiUrl}/instance/connectionState/${company.evolution_instance_name}`, {
                 headers: {
                     'apikey': company.evolution_api_key
                 }
@@ -38,9 +53,12 @@ export default function WhatsAppSettings() {
                 setConnectionState(state);
 
                 if (state === 'open') {
+                    // Clear QR code since we are already connected
+                    setQrCode(null);
+
                     // 2. If open, fetch instance details to get the number
                     try {
-                        const instanceResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${company.evolution_instance_name}`, {
+                        const instanceResponse = await fetch(`${evolutionApiUrl}/instance/fetchInstances?instanceName=${company.evolution_instance_name}`, {
                             headers: {
                                 'apikey': company.evolution_api_key
                             }
@@ -84,6 +102,12 @@ export default function WhatsAppSettings() {
                 } else {
                     setConnectedNumber(null);
                 }
+            } else if (stateResponse.status === 404) {
+                // Instance was deleted from server but not from DB
+                setConnectionState('close');
+                setConnectedNumber(null);
+                setQrCode(null);
+                console.log('Instance not found on server, ready for re-creation.');
             } else {
                 setConnectionState('offline');
                 setConnectedNumber(null);
@@ -94,17 +118,17 @@ export default function WhatsAppSettings() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [company, EVOLUTION_API_URL]);
+    }, [company, evolutionApiUrl]);
 
     // ... (rest of the file)
 
 
 
     useEffect(() => {
-        if (company?.evolution_instance_name) {
+        if (company?.evolution_instance_name && evolutionApiUrl) {
             fetchConnectionState();
         }
-    }, [company, fetchConnectionState]);
+    }, [company, evolutionApiUrl, fetchConnectionState]);
 
     // Poll for status
     useEffect(() => {
@@ -123,19 +147,67 @@ export default function WhatsAppSettings() {
     }, [qrCode, connectionState, fetchConnectionState]);
 
     const handleConnect = async () => {
-        if (!company?.evolution_instance_name || !company?.evolution_api_key) return;
+        if (!company || !evolutionApiUrl) return;
 
         try {
             setLoading(true);
             setError(null);
 
-            // 1. Check if instance exists first
+            let instanceName = company.evolution_instance_name;
+            let apiKey = company.evolution_api_key;
+            const supabase = getSupabase();
+
+            // 0. Auto-provision if missing credentials
+            if (!instanceName || !apiKey) {
+                console.log('Credentials missing, auto-provisioning...');
+
+                // Fetch Global API Key
+                const { data: settingsData, error: settingsError } = await supabase!
+                    .from('platform_settings')
+                    .select('value')
+                    .eq('key', 'evolution_global_api_key')
+                    .single();
+
+                if (settingsError || !settingsData) {
+                    throw new Error('No se pudo obtener la clave global de API.');
+                }
+
+                const globalApiKey = settingsData.value;
+                const newInstanceName = `ktracker_${company.id}`;
+
+                // Update company with new credentials
+                const { error: updateError } = await supabase!
+                    .from('company')
+                    .update({
+                        evolution_instance_name: newInstanceName,
+                        evolution_api_key: globalApiKey
+                    })
+                    .eq('id', company.id);
+
+                if (updateError) throw updateError;
+
+                // Update local vars to proceed immediately
+                instanceName = newInstanceName;
+                apiKey = globalApiKey;
+
+                // Small delay to ensure DB propagation if needed, though local vars are set
+                console.log('Provisioned:', { instanceName, apiKey });
+            }
+
+            // 1. Check if instance exists first (using fetchInstances to avoid 404 logs)
             let instanceExists = false;
             try {
-                const checkRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${company.evolution_instance_name}`, {
-                    headers: { 'apikey': company.evolution_api_key || '' }
+                const checkRes = await fetch(`${evolutionApiUrl}/instance/fetchInstances?instanceName=${instanceName}`, {
+                    headers: { 'apikey': apiKey || '' }
                 });
-                if (checkRes.ok) instanceExists = true;
+                if (checkRes.ok) {
+                    const instances = await checkRes.json();
+                    // Evolution API v2 returns instances in an array or data.data array
+                    const dataArray = Array.isArray(instances) ? instances : (instances.data || []);
+                    instanceExists = dataArray.some((i: any) =>
+                        i.instanceName === instanceName || i.name === instanceName
+                    );
+                }
             } catch (e) {
                 console.log('Instance check failed', e);
             }
@@ -143,20 +215,20 @@ export default function WhatsAppSettings() {
             // 2. Create if not exists
             if (!instanceExists) {
                 console.log('Instance not found, creating new one...');
-                const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+                const createResponse = await fetch(`${evolutionApiUrl}/instance/create`, {
                     method: 'POST',
                     headers: {
-                        'apikey': company.evolution_api_key,
+                        'apikey': apiKey!,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        instanceName: company.evolution_instance_name,
-                        token: company.evolution_instance_name.replace('ktracker_', ''),
+                        instanceName: instanceName,
+                        token: instanceName!.replace('ktracker_', ''),
                         qrcode: true, // Request QR immediately
                         integration: "WHATSAPP-BAILEYS",
                         webhook: {
                             enabled: true,
-                            url: "https://kai-pro-n8n.3znlkb.easypanel.host/webhook/whatsapp-bot",
+                            url: `https://pkeyudivtcfbpjntkbyk.supabase.co/functions/v1/whatsapp-webhook`,
                             events: ["MESSAGES_UPSERT"]
                         },
                         rejectCall: true,
@@ -174,9 +246,21 @@ export default function WhatsAppSettings() {
 
             // 3. Always fetch QR code explicitly
             console.log('Fetching QR code...');
-            const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${company.evolution_instance_name}`, {
+
+            // Try to logout first to ensure we get a fresh QR if stuck
+            try {
+                await fetch(`${evolutionApiUrl}/instance/logout/${instanceName}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': apiKey || '' }
+                });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {
+                console.log('Pre-connect logout failed (normal if already logged out)');
+            }
+
+            const response = await fetch(`${evolutionApiUrl}/instance/connect/${instanceName}`, {
                 headers: {
-                    'apikey': company.evolution_api_key
+                    'apikey': apiKey!
                 }
             });
 
@@ -196,17 +280,17 @@ export default function WhatsAppSettings() {
                 } else {
                     // If no QR, try logging out first to clear stuck session
                     console.warn('No QR, trying logout and retry...');
-                    await fetch(`${EVOLUTION_API_URL}/instance/logout/${company.evolution_instance_name}`, {
+                    await fetch(`${evolutionApiUrl}/instance/logout/${instanceName}`, {
                         method: 'DELETE',
-                        headers: { 'apikey': company.evolution_api_key || '' }
+                        headers: { 'apikey': apiKey || '' }
                     });
 
                     // Wait a bit
                     await new Promise(resolve => setTimeout(resolve, 1500));
 
                     // Retry connect
-                    const retryRes = await fetch(`${EVOLUTION_API_URL}/instance/connect/${company.evolution_instance_name}`, {
-                        headers: { 'apikey': company.evolution_api_key || '' }
+                    const retryRes = await fetch(`${evolutionApiUrl}/instance/connect/${instanceName}`, {
+                        headers: { 'apikey': apiKey || '' }
                     });
                     const retryData = await retryRes.json();
 
@@ -235,8 +319,9 @@ export default function WhatsAppSettings() {
         // Removed confirm dialog, will use toast for feedback
 
         setLoading(true);
+        setLoading(true);
         try {
-            await fetch(`${EVOLUTION_API_URL}/instance/logout/${company.evolution_instance_name}`, {
+            await fetch(`${evolutionApiUrl}/instance/logout/${company.evolution_instance_name}`, {
                 method: 'DELETE',
                 headers: {
                     'apikey': company.evolution_api_key
@@ -266,19 +351,34 @@ export default function WhatsAppSettings() {
             setIsResetModalOpen(false); // Close modal immediately or wait? Better close first.
 
             // 1. Delete the instance
-            await fetch(`${EVOLUTION_API_URL}/instance/delete/${company.evolution_instance_name}`, {
+            await fetch(`${evolutionApiUrl}/instance/delete/${company.evolution_instance_name}`, {
                 method: 'DELETE',
                 headers: {
                     'apikey': company.evolution_api_key
                 }
             });
 
-            // 2. Update local state
-            setConnectionState('offline');
-            setQrCode(null);
-            toast.success('Instancia reiniciada correctamente. Ahora puedes generar un nuevo QR.');
+            // Wait for deletion to propagate
+            await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // 3. Refresh state
+            // 2. Update database to clear credentials (Hard Reset)
+            const supabase = getSupabase();
+            const { error: dbError } = await supabase!
+                .from('company')
+                .update({
+                    evolution_instance_name: null,
+                    evolution_api_key: null
+                })
+                .eq('id', company.id);
+
+            if (dbError) throw dbError;
+
+            // 3. Update local state
+            setConnectionState('unknown');
+            setQrCode(null);
+            toast.success('Instancia reiniciada correctamente. El sistema ha vuelto al estado inicial.');
+
+            // 4. Refresh state - this will now show the "Conectar" button since credentials are null
             fetchConnectionState();
 
         } catch (error) {
@@ -369,6 +469,10 @@ export default function WhatsAppSettings() {
                                         <span className="flex items-center gap-1 text-yellow-600">
                                             <RefreshCw className="w-4 h-4 animate-spin" /> Esperando vinculación...
                                         </span>
+                                    ) : !company?.evolution_instance_name ? (
+                                        <span className="flex items-center gap-1 text-gray-400">
+                                            <AlertCircle className="w-4 h-4" /> No configurado
+                                        </span>
                                     ) : (
                                         <span className="flex items-center gap-1 text-gray-500">
                                             <Unlink className="w-4 h-4" /> Desconectado
@@ -427,7 +531,7 @@ export default function WhatsAppSettings() {
                                     </p>
                                     <button
                                         onClick={handleConnect}
-                                        disabled={loading || !company?.evolution_instance_name}
+                                        disabled={loading}
                                         className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2 mx-auto disabled:opacity-50"
                                     >
                                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <LinkIcon className="w-5 h-5" />}
@@ -489,22 +593,24 @@ export default function WhatsAppSettings() {
                     </div>
                 </div>
 
-                {/* Danger Zone */}
-                <div className="bg-gray-50 p-6 border-t border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Zona de Peligro</h3>
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500">
-                            Si tienes problemas con la conexión, puedes reiniciar la instancia. Esto eliminará la sesión actual.
-                        </p>
-                        <button
-                            onClick={handleResetInstance}
-                            disabled={loading || !company?.evolution_instance_name}
-                            className="px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium whitespace-nowrap"
-                        >
-                            Reiniciar Instancia
-                        </button>
+                {/* Danger Zone - Only show if instance exists */}
+                {company?.evolution_instance_name && (
+                    <div className="bg-gray-50 p-6 border-t border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Zona de Peligro</h3>
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                                Si tienes problemas con la conexión, puedes reiniciar la instancia. Esto eliminará la sesión actual.
+                            </p>
+                            <button
+                                onClick={handleResetInstance}
+                                disabled={loading}
+                                className="px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium whitespace-nowrap"
+                            >
+                                Reiniciar Instancia
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             <Modal

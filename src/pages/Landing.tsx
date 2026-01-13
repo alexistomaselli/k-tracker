@@ -16,7 +16,7 @@ export default function Landing() {
 
       // Check initial session
       supabase.auth.getSession().then(({ data: { session } }) => {
-        console.log('DEBUG: Initial session check:', session ? 'Found' : 'None');
+
         if (session) {
           navigate('/dashboard');
         }
@@ -24,7 +24,7 @@ export default function Landing() {
 
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('DEBUG: Auth state change:', event, session ? 'Session exists' : 'No session');
+
         if (event === 'SIGNED_IN' && session) {
           navigate('/dashboard');
         }

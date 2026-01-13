@@ -11,6 +11,10 @@ interface UserContextType {
     isPlatformAdmin: boolean;
     loading: boolean;
     approvalStatus: 'pending' | 'approved' | 'rejected' | null;
+    activePlan: any | null; // Using any for Plan temporarily to avoid circular deps or complex type defs here
+    planStatus: 'trial' | 'active' | 'expired' | 'past_due';
+    isInTrial: boolean;
+    isExpired: boolean;
     reloadUser: () => Promise<void>;
 }
 
@@ -24,6 +28,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+    const [activePlan, setActivePlan] = useState<any | null>(null);
+    const [planStatus, setPlanStatus] = useState<'trial' | 'active' | 'expired' | 'past_due'>('trial');
+    const [isInTrial, setIsInTrial] = useState(false);
+    const [isExpired, setIsExpired] = useState(false);
 
     const fetchUserData = useCallback(async () => {
         if (!SUPABASE_CONFIGURED) {
@@ -74,6 +82,50 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     setCompany(companyData as Company);
                     if (companyData) {
                         setApprovalStatus(companyData.approval_status as any);
+
+                        // Fetch Active Subscription & Plan
+                        const { data: subscription } = await supabase
+                            .from('subscriptions')
+                            .select('*, plan:plans(*)')
+                            .eq('company_id', companyData.id)
+                            .maybeSingle();
+
+                        if (subscription) {
+                            const now = new Date();
+                            // Check strict date expiration if end_date exists
+                            const isDateExpired = subscription.end_date ? new Date(subscription.end_date) < now : false;
+
+                            if (subscription.status === 'active' && !isDateExpired) {
+                                setPlanStatus('active');
+                                setActivePlan(subscription.plan); // Plan details joined
+                                setIsInTrial(false);
+                                setIsExpired(false);
+                            } else {
+                                setPlanStatus('expired'); // or subscription.status if we want granular
+                                setActivePlan(null); // Or keep it if we want to show "Expired Pro Plan"
+                                setIsInTrial(false);
+                                setIsExpired(true);
+                            }
+                        } else {
+                            // No subscription -> Check Trial
+                            // Import calculateTrialDaysLeft dynamically or duplicate logic to avoid simple import if issues arise, 
+                            // but we can interpret raw dates here safely.
+                            const createdAt = new Date(companyData.created_at);
+                            const now = new Date();
+                            const trialDays = companyData.trial_days || 14;
+                            const elapsedDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+                            const daysLeft = Math.max(0, trialDays - elapsedDays);
+
+                            if (daysLeft > 0) {
+                                setPlanStatus('trial');
+                                setIsInTrial(true);
+                                setIsExpired(false);
+                            } else {
+                                setPlanStatus('expired'); // Trial expired
+                                setIsInTrial(false);
+                                setIsExpired(true);
+                            }
+                        }
                     }
                 }
             } else {
@@ -83,6 +135,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 setIsAdmin(false);
                 setIsPlatformAdmin(false);
                 setApprovalStatus(null);
+                setActivePlan(null);
+                setPlanStatus('trial');
+                setIsInTrial(false);
+                setIsExpired(false);
             }
         } catch (error) {
             console.error('Error fetching user data:', error);
@@ -101,11 +157,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 fetchUserData();
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
-                setCompany(null);
                 setParticipant(null);
                 setIsAdmin(false);
                 setIsPlatformAdmin(false);
                 setLoading(false);
+                setActivePlan(null);
+                setPlanStatus('trial');
+                setIsInTrial(false);
+                setIsExpired(false);
             }
         });
 
@@ -123,6 +182,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             isPlatformAdmin,
             loading,
             approvalStatus,
+            activePlan,
+            planStatus,
+            isInTrial,
+            isExpired,
             reloadUser: fetchUserData
         }}>
             {children}

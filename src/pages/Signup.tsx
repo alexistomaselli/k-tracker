@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, Mail } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -18,6 +18,27 @@ export default function Signup() {
     confirm_password: '',
   });
   const [error, setError] = useState('');
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [trialDays, setTrialDays] = useState<string>('14');
+
+  useEffect(() => {
+    async function fetchSettings() {
+      const supabase = getSupabase();
+      if (!supabase) return;
+
+      const { data } = await supabase
+        .from('platform_settings')
+        .select('value')
+        .eq('key', 'default_trial_days')
+        .single();
+
+      if (data) {
+        setTrialDays(data.value);
+      }
+    }
+    fetchSettings();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +51,8 @@ export default function Signup() {
       setError('Las contraseñas no coinciden');
       return;
     }
+
+    setIsSubmitting(true);
     const supabase = getSupabase()!;
     supabase.auth.signUp({
       email: formData.email.trim(),
@@ -44,6 +67,7 @@ export default function Signup() {
       .then(async ({ data, error }) => {
         if (error) {
           setError(error.message || 'No se pudo crear la cuenta');
+          setIsSubmitting(false);
           return;
         }
         try {
@@ -74,9 +98,11 @@ export default function Signup() {
           const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
           console.warn('Post-signup linking failed:', errorMessage);
           setError(errorMessage || 'Error al crear y vincular la empresa');
+          setIsSubmitting(false);
           return;
         }
-        navigate('/dashboard');
+        setRegistrationSuccess(true);
+        setIsSubmitting(false);
       });
   };
 
@@ -86,6 +112,46 @@ export default function Signup() {
       [e.target.name]: e.target.value,
     }));
   };
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-16 h-16 bg-[#0A4D8C]/10 rounded-full flex items-center justify-center">
+                  <Mail className="w-8 h-8 text-[#0A4D8C]" />
+                </div>
+              </div>
+              <h1 className="text-2xl font-bold text-center text-gray-900">
+                ¡Verifica tu correo!
+              </h1>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-gray-600 mb-6">
+                Hemos enviado un enlace de confirmación a <span className="font-semibold text-gray-900">{formData.email}</span>.
+              </p>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800 text-left">
+                <p className="font-semibold mb-1">Pasos siguientes:</p>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>Confirma tu correo electrónico haciendo clic en el enlace enviado.</li>
+                  <li>Espera a que un administrador de KAI PRO habilite tu cuenta.</li>
+                  <li>Recibirás una notificación cuando tu cuenta esté activa.</li>
+                </ol>
+              </div>
+              <Link to="/login">
+                <Button className="w-full">
+                  Ir al Inicio de Sesión
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] flex flex-col">
@@ -104,6 +170,11 @@ export default function Signup() {
             <p className="text-center text-gray-600 text-sm mt-2">
               Regístrate y comienza a gestionar tus proyectos
             </p>
+            {trialDays && (
+              <div className="mt-4 bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm text-center font-medium border border-blue-100">
+                🚀 Comienza con una prueba gratuita de {trialDays} días
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,7 +197,7 @@ export default function Signup() {
                 required
               />
               <Input
-                label="Email Corporativo"
+                label="Email"
                 name="email"
                 type="email"
                 value={formData.email}
@@ -161,7 +232,7 @@ export default function Signup() {
                 placeholder="••••••••"
                 required
               />
-              <Button type="submit" variant="primary" className="w-full mt-6">
+              <Button type="submit" variant="primary" className="w-full mt-6" isLoading={isSubmitting}>
                 Crear Cuenta
               </Button>
             </form>
