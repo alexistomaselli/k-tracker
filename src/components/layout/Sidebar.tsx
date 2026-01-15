@@ -94,60 +94,63 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   {company?.name || 'Sin Empresa'}
                 </p>
 
-                {/* Plan Status Display */}
-                {activePlan ? (
-                  <div className="mt-3">
-                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">
-                      Plan Activo
-                    </p>
-                    <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-md p-2 flex items-center justify-between">
-                      <span className="font-bold text-blue-800 dark:text-blue-200 text-sm">
-                        {activePlan.name}
-                      </span>
-                      {/* Optional: Show renewal date or something small */}
-                    </div>
-                  </div>
-                ) : (
-                  company?.created_at && (
-                    <div className="mt-3">
-                      {planStatus === 'expired' ? (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md p-2 text-center">
-                          <span className="font-bold text-red-600 dark:text-red-400 text-sm block mb-2">
-                            Vencido
+                {/* Plan Status Display - Only for Admins */}
+                {isAdmin && (
+                  <>
+                    {activePlan ? (
+                      <div className="mt-3">
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">
+                          Plan Activo
+                        </p>
+                        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-md p-2 flex items-center justify-between">
+                          <span className="font-bold text-blue-800 dark:text-blue-200 text-sm">
+                            {activePlan.name}
                           </span>
-                          <NavLink
-                            to="/select-plan"
-                            className="block w-full py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded transition-colors"
-                          >
-                            Renovar Plan
-                          </NavLink>
                         </div>
-                      ) : (
-                        <>
-                          <div className="flex justify-between items-center text-xs mb-1.5">
-                            <span className="text-gray-600 dark:text-gray-400 font-medium">Prueba Gratuita</span>
-                            <span className={`font-bold ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
-                              ? 'text-red-600'
-                              : 'text-green-600'
-                              }`}>
-                              {calculateTrialDaysLeft(company.created_at, company.trial_days)} días
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-500 ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
-                                ? 'bg-red-500'
-                                : 'bg-green-500'
-                                }`}
-                              style={{
-                                width: `${Math.min(100, Math.max(5, (calculateTrialDaysLeft(company.created_at, company.trial_days) / (company.trial_days || 14)) * 100))}%`
-                              }}
-                            ></div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )
+                      </div>
+                    ) : (
+                      company?.created_at && (
+                        <div className="mt-3">
+                          {planStatus === 'expired' ? (
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md p-2 text-center">
+                              <span className="font-bold text-red-600 dark:text-red-400 text-sm block mb-2">
+                                Vencido
+                              </span>
+                              <NavLink
+                                to="/select-plan"
+                                className="block w-full py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded transition-colors"
+                              >
+                                Renovar Plan
+                              </NavLink>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex justify-between items-center text-xs mb-1.5">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Prueba Gratuita</span>
+                                <span className={`font-bold ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
+                                  ? 'text-red-600'
+                                  : 'text-green-600'
+                                  }`}>
+                                  {calculateTrialDaysLeft(company.created_at, company.trial_days)} días
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-500 ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
+                                    ? 'bg-red-500'
+                                    : 'bg-green-500'
+                                    }`}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(5, (calculateTrialDaysLeft(company.created_at, company.trial_days) / (company.trial_days || 14)) * 100))}%`
+                                  }}
+                                ></div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </>
                 )}
               </div>
             </div>

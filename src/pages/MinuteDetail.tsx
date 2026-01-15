@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Plus, Trash2, Save, X, ChevronDown, Eye, Building2, CheckCircle, AlertCircle, MoreHorizontal } from 'lucide-react';
+import { Calendar, MapPin, Clock, Plus, Trash2, Save, X, ChevronDown, Eye, Building2, CheckCircle, AlertCircle, MoreHorizontal, FileSpreadsheet } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Chip from '../components/ui/Chip';
@@ -12,7 +12,11 @@ import MinuteModal from '../components/minutes/MinuteModal';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import SearchableSelect from '../components/ui/SearchableSelect';
+import RoutineObservationEditor from '../components/minutes/RoutineObservationEditor';
+
+
 import { useToast } from '../context/ToastContext';
+import XLSX from 'xlsx-js-style';
 
 interface NewTask extends Partial<Task> {
   id: string;
@@ -251,6 +255,192 @@ export default function MinuteDetail() {
     return a.first_name.localeCompare(b.first_name);
   });
 
+  const handleExportExcel = () => {
+    if (!minute || !project) return;
+
+    // Define styles
+    const titleStyle = {
+      font: { bold: true, sz: 14 },
+      alignment: { horizontal: "center" }
+    };
+
+    const headerLabelStyle = {
+      font: { bold: true, color: { rgb: "444444" } }
+    };
+
+    const sectionHeaderStyle = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "0A4D8C" } }, // Blue background
+      alignment: { horizontal: "left" },
+      border: {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" }
+      }
+    };
+
+    const tableHeaderStyle = {
+      font: { bold: true },
+      fill: { fgColor: { rgb: "EEEEEE" } }, // Light gray
+      border: {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" }
+      }
+    };
+
+    const cellStyle = {
+      border: {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" }
+      },
+      alignment: { wrapText: true, vertical: "top" }
+    };
+
+    const wb = XLSX.utils.book_new();
+
+
+    // Helper to add a row with styles
+    // We can't use simple AOA for styles easily with mix types, so we'll build cell objects
+    // But xlsx-js-style allows treating the sheet as a collection of cells. 
+    // It's easier to create the AOA first, then apply styles to the range.
+
+    // However, simplest way with xlsx-js-style is to create cell objects directly
+
+    let currentRow = 0;
+    const ws: any = { '!ref': 'A1:E100', '!cols': [] }; // Init
+
+    const addCell = (r: number, c: number, val: any, style: any = {}) => {
+      const cellAddress = XLSX.utils.encode_cell({ r, c });
+      ws[cellAddress] = { v: val, t: typeof val === 'number' ? 'n' : 's', s: style };
+    };
+
+    const mergeCells = (s_r: number, s_c: number, e_r: number, e_c: number) => {
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({ s: { r: s_r, c: s_c }, e: { r: e_r, c: e_c } });
+    };
+
+    // --- Title ---
+    addCell(currentRow, 0, `ACTA DE REUNIÓN #${minute.minute_number}`, titleStyle);
+    mergeCells(currentRow, 0, currentRow, 4); // Merge A-E
+    currentRow += 2;
+
+    // --- Info Header ---
+    const infoFields = [
+      ['Proyecto:', project.name],
+      ['Fecha:', minute.meeting_date],
+      ['Horario:', `${minute.start_time} - ${minute.end_time}`],
+      ['Lugar:', minute.location || 'No especificado'],
+      ['Estado:', minute.status === 'final' ? 'Finalizada' : minute.status === 'in_progress' ? 'En Curso' : 'Borrador']
+    ];
+
+    infoFields.forEach(([label, value]) => {
+      addCell(currentRow, 0, label, headerLabelStyle);
+      addCell(currentRow, 1, value, { alignment: { wrapText: true } });
+      // Merge values across B-E for cleaner look if needed, but B is wide enough usually.
+      mergeCells(currentRow, 1, currentRow, 4);
+      currentRow++;
+    });
+    currentRow++;
+
+    // --- SECTION GENERATOR ---
+    const addSection = (title: string, headers: string[], dataRows: any[][]) => {
+      // Section Title
+      addCell(currentRow, 0, title, sectionHeaderStyle);
+      // Fill the rest of the row with the style for visual consistency (optional, but looks better if merged)
+      mergeCells(currentRow, 0, currentRow, headers.length - 1 > 0 ? headers.length - 1 : 4);
+      currentRow++;
+
+      // Table Headers
+      headers.forEach((h, i) => {
+        addCell(currentRow, i, h, tableHeaderStyle);
+      });
+      currentRow++;
+
+      // Data
+      if (dataRows.length === 0) {
+        addCell(currentRow, 0, 'No hay registros', cellStyle);
+        mergeCells(currentRow, 0, currentRow, headers.length - 1);
+        currentRow++;
+      } else {
+        dataRows.forEach(row => {
+          row.forEach((val, i) => {
+            addCell(currentRow, i, val, cellStyle);
+          });
+          currentRow++;
+        });
+      }
+      currentRow++; // Spacer
+    };
+
+    // 1. AGENDA
+    const agendaRows = agendaItems.map((item, idx) => [
+      idx + 1,
+      item.description,
+      item.notes || '-'
+    ]);
+    addSection('1. AGENDA DEL DÍA', ['N°', 'Tema', 'Notas'], agendaRows);
+
+    // 2. ASISTENCIA
+    const attendanceRows = participants.map(p => {
+      const att = attendance.find(a => a.participant_id === p.id);
+      const status = att?.status === 'present' ? 'Presente' : 'Ausente';
+      return [`${p.first_name} ${p.last_name}`, p.role || '-', status];
+    });
+    addSection('2. ASISTENCIA', ['Nombre', 'Rol', 'Estado'], attendanceRows);
+
+    // 3. RUTINAS
+    const routineRows = minuteRoutines.map(r => {
+      let statusLabel = 'Pendiente';
+      if (r.status === 'completed') statusLabel = 'Cumplido';
+      if (r.status === 'not_completed') statusLabel = 'No Cumplido';
+      if (r.status === 'partial') statusLabel = 'Parcial';
+
+      const freq = r.routine?.frequency === 'daily' ? 'Diaria' : r.routine?.frequency === 'weekly' ? 'Semanal' : 'Mensual';
+      return [r.routine?.description || '', freq, statusLabel, r.notes || '-'];
+    });
+    addSection('3. SEGUIMIENTO DE RUTINAS', ['Rutina', 'Frecuencia', 'Estado', 'Observaciones'], routineRows);
+
+    // 4. TAREAS
+    const taskRows = tasks.map(t => {
+      const assignee = getParticipantById(t.assignee_id);
+      const assigneeName = assignee ? `${assignee.first_name} ${assignee.last_name}` : '-';
+      const date = t.due_date ? new Date(t.due_date).toLocaleDateString() : '-';
+
+      let statusLabel = 'Pendiente';
+      if (t.status === 'in_progress') statusLabel = 'En Curso';
+      if (t.status === 'completed') statusLabel = 'Completada';
+
+      // Prio Translation
+      const prioMap: Record<string, string> = { low: 'Baja', medium: 'Media', high: 'Alta', critical: 'Crítica' };
+
+      return [t.description, assigneeName, date, prioMap[t.priority] || t.priority, statusLabel];
+    });
+    addSection('4. ACUERDOS Y TAREAS', ['Descripción', 'Responsable', 'Vencimiento', 'Prioridad', 'Estado'], taskRows);
+
+    // Set Range
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: currentRow, c: 4 } });
+
+    // Set Column Widths
+    ws['!cols'] = [
+      { wch: 40 }, // A: Description/Name (Main content)
+      { wch: 25 }, // B: Assignee/Role
+      { wch: 20 }, // C: Date/Status
+      { wch: 15 }, // D: Priority/Notes
+      { wch: 15 }  // E: Status
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Acta");
+    const fileName = `Acta_${minute.minute_number}_${project.name.replace(/\s+/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    toast.success('Acta exportada a Excel correctamente');
+  };
+
 
 
   const [savingTasks, setSavingTasks] = useState(false);
@@ -345,6 +535,16 @@ export default function MinuteDetail() {
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              className="text-gray-700 border-gray-200 hover:bg-gray-50"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" />
+              Exportar Excel
+            </Button>
 
             {minute?.status !== 'final' && (
               <Button
@@ -657,11 +857,9 @@ export default function MinuteDetail() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <Input
-                            value={routine.notes || ''}
-                            onChange={(e) => handleRoutineNotesChange(routine.id, e.target.value)}
-                            placeholder="Agregar observación..."
-                            className="text-sm"
+                          <RoutineObservationEditor
+                            initialNotes={routine.notes || ''}
+                            onSave={(notes) => handleRoutineNotesChange(routine.id, notes)}
                           />
                         </td>
                       </tr>

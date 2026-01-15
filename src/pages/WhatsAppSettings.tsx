@@ -393,12 +393,39 @@ export default function WhatsAppSettings() {
 
     // Bot Mode Toggle Logic
     const [botUnknownReply, setBotUnknownReply] = useState(true);
+    const [botEnabled, setBotEnabled] = useState(true);
 
     useEffect(() => {
         if (company?.bot_unknown_reply_enabled !== undefined) {
             setBotUnknownReply(company.bot_unknown_reply_enabled);
         }
+        if (company?.bot_enabled !== undefined) {
+            setBotEnabled(company.bot_enabled);
+        }
     }, [company]);
+
+    const handleToggleBotGlobal = async () => {
+        if (!company) return;
+        const supabase = getSupabase();
+        if (!supabase) return;
+
+        const newValue = !botEnabled;
+        setBotEnabled(newValue);
+
+        try {
+            const { error } = await supabase
+                .from('company')
+                .update({ bot_enabled: newValue })
+                .eq('id', company.id);
+
+            if (error) throw error;
+            toast.success(`Chatbot ${newValue ? 'activado' : 'pausado'} correctamente.`);
+        } catch (error) {
+            console.error('Error updating global bot state:', error);
+            setBotEnabled(!newValue);
+            toast.error('Error al actualizar el estado del bot.');
+        }
+    };
 
     const handleToggleBotMode = async () => {
         if (!company) return;
@@ -570,8 +597,28 @@ export default function WhatsAppSettings() {
 
                 {/* Bot Settings */}
                 <div className="bg-white p-6 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuración del Bot</h3>
-                    <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuración de Inteligencia Artificial</h3>
+
+                    {/* Global Toggle */}
+                    <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-100">
+                        <div>
+                            <p className="font-medium text-gray-900">Estado del Chatbot (IA)</p>
+                            <p className="text-sm text-gray-500">
+                                {botEnabled
+                                    ? "El bot está activo y responderá consultas de los usuarios."
+                                    : "El bot está pausado. No se generarán respuestas automáticas."}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleToggleBotGlobal}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${botEnabled ? 'bg-green-600' : 'bg-gray-200'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${botEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    {/* Unknown Reply Toggle */}
+                    <div className={`flex items-center justify-between transition-opacity ${!botEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div>
                             <p className="font-medium text-gray-900">Responder a Desconocidos</p>
                             <p className="text-sm text-gray-500">
@@ -582,13 +629,10 @@ export default function WhatsAppSettings() {
                         </div>
                         <button
                             onClick={handleToggleBotMode}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${botUnknownReply ? 'bg-green-600' : 'bg-gray-200'
-                                }`}
+                            disabled={!botEnabled}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${botUnknownReply ? 'bg-green-600' : 'bg-gray-200'}`}
                         >
-                            <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${botUnknownReply ? 'translate-x-6' : 'translate-x-1'
-                                    }`}
-                            />
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${botUnknownReply ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                     </div>
                 </div>

@@ -12,6 +12,7 @@ export interface Company {
   evolution_instance_name?: string;
   evolution_api_key?: string;
   bot_unknown_reply_enabled?: boolean;
+  bot_enabled?: boolean;
   theme?: string;
 }
 

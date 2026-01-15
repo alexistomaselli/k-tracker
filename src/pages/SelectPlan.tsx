@@ -37,7 +37,7 @@ interface Payment {
 
 export default function SelectPlan() {
     const { signOut } = useAuth();
-    const { company, isInTrial } = useCurrentUser();
+    const { company, isInTrial, isAdmin, loading: userLoading } = useCurrentUser();
     const toast = useToast();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
@@ -113,8 +113,14 @@ export default function SelectPlan() {
     }, []);
 
     useEffect(() => {
+        if (!userLoading && !isAdmin) {
+            window.location.href = '/dashboard';
+        }
+    }, [isAdmin, userLoading]);
+
+    useEffect(() => {
         async function loadAll() {
-            if (!company) return;
+            if (!company || !isAdmin) return;
 
             setLoading(true);
             try {

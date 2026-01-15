@@ -231,6 +231,13 @@ Deno.serve(async (req: Request) => {
     const role = user.role === 'admin' ? 'admin' : 'participant'
     const instanceName = company.evolution_instance_name
 
+    // CHECK IF BOT IS DISABLED BY COMPANY
+    if (company.bot_enabled === false) {
+      console.log(`Bot is DISABLED for company ${company.name}. Skipping processing.`)
+      await logToDB('ignored', 'Bot disabled by company', { company_id: company.id })
+      return new Response(JSON.stringify({ status: 'ignored', reason: 'bot_disabled' }), { headers: { "Content-Type": "application/json" } })
+    }
+
     // Log success identification
     await logToDB('processing', 'User identified', { role, company_id: company.id, participant: user })
 
