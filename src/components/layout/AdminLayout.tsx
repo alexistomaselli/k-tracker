@@ -1,13 +1,21 @@
 import { Outlet, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentUser } from '../../hooks/useData';
-import { LayoutDashboard, Building2, CreditCard, LogOut, Package } from 'lucide-react';
+import {
+    LayoutDashboard,
+    Building2,
+    CreditCard,
+    Settings,
+    LogOut,
+    BookOpen,
+    Package
+} from 'lucide-react';
 
 export default function AdminLayout() {
     const { signOut } = useAuth();
     const { user, isPlatformAdmin, loading } = useCurrentUser();
 
-    if (loading) return <div className="p-8 text-center">Cargando...</div>;
+    if (loading) return <div className="p-8 text-center bg-gray-100 h-screen flex items-center justify-center">Cargando...</div>;
     if (!user) return <Navigate to="/admin/login" replace />;
 
     // Enforce Platform Admin Role
@@ -46,6 +54,14 @@ export default function AdminLayout() {
                     <Link to="/admin/bank-accounts" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
                         <Building2 className="w-5 h-5" />
                         Cuentas Bancarias
+                    </Link>
+                    <Link to="/admin/settings" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
+                        <Settings className="w-5 h-5" />
+                        Configuración
+                    </Link>
+                    <Link to="/admin/documentation" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
+                        <BookOpen className="w-5 h-5" />
+                        Manual Ops
                     </Link>
                 </nav>
 

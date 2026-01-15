@@ -23,3 +23,15 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 
     return <>{children}</>;
 }
+
+export function RequireActiveCompany({ children }: { children: ReactNode }) {
+    const { loading, planStatus, isAdmin } = useCurrentUser();
+
+    if (loading) return null;
+
+    if (planStatus === 'expired' && isAdmin) {
+        return <Navigate to="/select-plan" replace />;
+    }
+
+    return <>{children}</>;
+}

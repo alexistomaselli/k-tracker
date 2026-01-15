@@ -12,6 +12,7 @@ export interface Company {
   evolution_instance_name?: string;
   evolution_api_key?: string;
   bot_unknown_reply_enabled?: boolean;
+  bot_enabled?: boolean;
   theme?: string;
 }
 
@@ -140,6 +141,15 @@ export interface ProjectRoutine {
   assignee_id?: string;
   company_id: string;
   created_at?: string;
+}
+
+export interface UserTour {
+  id: string;
+  user_id: string;
+  tour_key: string;
+  completed_at: string;
+  skipped: boolean;
+  created_at: string;
 }
 
 export interface MinuteRoutine {

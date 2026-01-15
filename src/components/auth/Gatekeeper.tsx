@@ -5,7 +5,7 @@ import { getSupabase } from '../../lib/supabase';
 import PendingApproval from '../../pages/PendingApproval';
 
 export default function Gatekeeper({ children }: { children: React.ReactNode }) {
-    const { company: initialCompany, loading, approvalStatus, isPlatformAdmin } = useCurrentUser();
+    const { company: initialCompany, loading, approvalStatus, isPlatformAdmin, isAdmin } = useCurrentUser();
     const [hasActivePlan, setHasActivePlan] = useState(false);
     const [isInTrial, setIsInTrial] = useState(true); // Default to true until checked
     const [checkingAccess, setCheckingAccess] = useState(true);
@@ -21,12 +21,9 @@ export default function Gatekeeper({ children }: { children: React.ReactNode }) 
             const supabase = getSupabase();
 
             // 1. Fetch subscription status (only external dependency now)
-            const { data: subData } = await supabase!
-                .from('subscriptions')
-                .select('status')
-                .eq('company_id', initialCompany.id)
-                .eq('status', 'active')
-                .maybeSingle();
+            // 1. Fetch subscription status via Secure RPC (handles RLS for participants)
+            const { data: status } = await supabase!
+                .rpc('check_company_subscription', { p_company_id: initialCompany.id });
 
             // 2. Calculate Trial Status using already loaded company data
             let trialActive = false;
@@ -39,7 +36,7 @@ export default function Gatekeeper({ children }: { children: React.ReactNode }) 
 
             // Update State
             setIsInTrial(trialActive);
-            setHasActivePlan(!!subData);
+            setHasActivePlan(status === 'active');
             setCheckingAccess(false);
         }
 
@@ -79,15 +76,20 @@ export default function Gatekeeper({ children }: { children: React.ReactNode }) 
     // 2. Check Trial & Plan
     // If NOT in trial AND NO active plan -> Locked
     if (!isInTrial && !hasActivePlan) {
-        const allowedRoutes = ['/billing', '/my-account', '/select-plan'];
+        const allowedRoutes = ['/billing', '/my-account', '/select-plan', '/service-suspended'];
 
         // Allow access to specific routes
         if (allowedRoutes.includes(location.pathname)) {
             return <>{children}</>;
         }
 
-        // Redirect to select plan for any other route
-        return <Navigate to="/select-plan" replace />;
+        // Redirect based on role
+        if (isPlatformAdmin || (initialCompany && isAdmin)) {
+            return <Navigate to="/select-plan" replace />;
+        }
+
+        // Participants/Users go to suspended page
+        return <Navigate to="/service-suspended" replace />;
     }
 
     // Access Granted

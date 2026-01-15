@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FolderOpen, FileText, CheckSquare, Layers, Users, User, X, CreditCard, MessageSquare } from 'lucide-react';
 
 import { useCurrentUser } from '../../hooks/useData';
+import { calculateTrialDaysLeft } from '../../hooks/useMockData';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { participant, isAdmin, loading } = useCurrentUser();
+  const { participant, isAdmin, loading, company, activePlan, planStatus } = useCurrentUser();
 
   const allLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,6 +32,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       if (participant.password_changed) {
         links = [
           { to: '/dashboard', icon: LayoutDashboard, label: 'Mis Tareas' },
+          { to: '/whatsapp-bot', icon: MessageSquare, label: 'Bot WhatsApp' },
           { to: '/my-account', icon: User, label: 'Mi Cuenta' },
         ];
       } else {
@@ -65,29 +67,92 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </button>
           </div>
 
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {links.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                id={`nav-${link.to.replace('/', '')}`}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${isActive
-                    ? 'bg-[#0A4D8C] dark:bg-blue-600 text-white'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`
-                }
-                onClick={() => onClose()}
-              >
-                <link.icon className="w-5 h-5" />
-                <span className="font-medium">{link.label}</span>
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
+            <div className="space-y-2">
+              {links.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  id={`nav-${link.to.replace('/', '')}`}
+                  className={({ isActive }) =>
+                    `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${isActive
+                      ? 'bg-[#0A4D8C] dark:bg-blue-600 text-white'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`
+                  }
+                  onClick={() => onClose()}
+                >
+                  <link.icon className="w-5 h-5" />
+                  <span className="font-medium">{link.label}</span>
+                </NavLink>
+              ))}
+            </div>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              <p className="font-semibold">Constructora del Sur</p>
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+              <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                <p className="font-bold text-sm text-gray-900 dark:text-white truncate mb-2">
+                  {company?.name || 'Sin Empresa'}
+                </p>
+
+                {/* Plan Status Display - Only for Admins */}
+                {isAdmin && (
+                  <>
+                    {activePlan ? (
+                      <div className="mt-3">
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">
+                          Plan Activo
+                        </p>
+                        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-md p-2 flex items-center justify-between">
+                          <span className="font-bold text-blue-800 dark:text-blue-200 text-sm">
+                            {activePlan.name}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      company?.created_at && (
+                        <div className="mt-3">
+                          {planStatus === 'expired' ? (
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md p-2 text-center">
+                              <span className="font-bold text-red-600 dark:text-red-400 text-sm block mb-2">
+                                Vencido
+                              </span>
+                              <NavLink
+                                to="/select-plan"
+                                className="block w-full py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded transition-colors"
+                              >
+                                Renovar Plan
+                              </NavLink>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex justify-between items-center text-xs mb-1.5">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Prueba Gratuita</span>
+                                <span className={`font-bold ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
+                                  ? 'text-red-600'
+                                  : 'text-green-600'
+                                  }`}>
+                                  {calculateTrialDaysLeft(company.created_at, company.trial_days)} días
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-500 ${calculateTrialDaysLeft(company.created_at, company.trial_days) <= 3
+                                    ? 'bg-red-500'
+                                    : 'bg-green-500'
+                                    }`}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(5, (calculateTrialDaysLeft(company.created_at, company.trial_days) / (company.trial_days || 14)) * 100))}%`
+                                  }}
+                                ></div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

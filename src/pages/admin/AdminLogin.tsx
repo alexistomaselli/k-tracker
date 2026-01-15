@@ -16,6 +16,7 @@ export default function AdminLogin() {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Redirect if already logged in as admin
     useEffect(() => {
@@ -30,12 +31,15 @@ export default function AdminLogin() {
             navigate('/admin');
             return;
         }
+
+        setIsSubmitting(true);
         setError('');
-        const supabase = getSupabase()!;
-        const email = formData.email.trim();
-        const password = formData.password.trim();
 
         try {
+            const supabase = getSupabase()!;
+            const email = formData.email.trim();
+            const password = formData.password.trim();
+
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) {
@@ -62,6 +66,8 @@ export default function AdminLogin() {
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
             setError(errorMessage);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -73,25 +79,25 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4">
-            <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+        <div className="min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center px-4">
+            <Card className="w-full max-w-md border-gray-200 shadow-xl">
                 <CardHeader>
                     <div className="flex items-center justify-center mb-4">
-                        <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/50">
+                        <div className="w-16 h-16 bg-[#0A4D8C] rounded-full flex items-center justify-center shadow-lg shadow-blue-900/20">
                             <ShieldCheck className="w-8 h-8 text-white" />
                         </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-center text-white">
+                    <h1 className="text-2xl font-bold text-center text-gray-900">
                         KAI PRO Admin
                     </h1>
-                    <p className="text-center text-gray-400 text-sm mt-2">
+                    <p className="text-center text-gray-600 text-sm mt-2">
                         Acceso exclusivo para administradores
                     </p>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Email
                             </label>
                             <Input
@@ -101,12 +107,12 @@ export default function AdminLogin() {
                                 onChange={handleChange}
                                 placeholder="admin@kaipro.com"
                                 required
-                                className="bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                                className="bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#0A4D8C] focus:ring-[#0A4D8C]"
                             />
                         </div>
 
                         <div className="relative">
-                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Contraseña
                             </label>
                             <div className="relative">
@@ -117,12 +123,12 @@ export default function AdminLogin() {
                                     onChange={handleChange}
                                     placeholder="••••••••"
                                     required
-                                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 pr-10"
+                                    className="bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#0A4D8C] focus:ring-[#0A4D8C] pr-10"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 focus:outline-none"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                                 >
                                     {showPassword ? (
                                         <EyeOff className="w-5 h-5" />
@@ -133,12 +139,12 @@ export default function AdminLogin() {
                             </div>
                         </div>
 
-                        <Button type="submit" className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white border-none">
+                        <Button type="submit" className="w-full mt-6 bg-[#0A4D8C] hover:bg-[#083d70] text-white border-none" isLoading={isSubmitting}>
                             Iniciar Sesión
                         </Button>
                     </form>
                     {error && (
-                        <div className="mt-4 p-3 bg-red-900/50 border border-red-800 rounded-md text-center text-sm text-red-200">
+                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-center text-sm text-red-600">
                             {error}
                         </div>
                     )}

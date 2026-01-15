@@ -29,6 +29,7 @@ export default function AdminDashboard() {
         totalRevenue: 0,
         activeCompanies: 0
     });
+    const [recentCompanies, setRecentCompanies] = useState<{ id: string; name: string; created_at: string; approval_status: string }[]>([]);
     const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -45,7 +46,6 @@ export default function AdminDashboard() {
 
                 if (statsError) {
                     console.error('Error fetching stats via RPC:', statsError);
-                    // Fallback or handle error (maybe user didn't run migration yet)
                 } else if (statsData) {
                     setStats({
                         totalCompanies: statsData.totalCompanies,
@@ -55,8 +55,18 @@ export default function AdminDashboard() {
                     });
                 }
 
-                // 2. Fetch Recent Payments (RLS should allow this if policy exists, otherwise might need RPC too)
-                // Assuming payments policy allows admins
+                // 2. Fetch Recent Companies
+                const { data: companiesData } = await supabase
+                    .from('company')
+                    .select('id, name, created_at, approval_status')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (companiesData) {
+                    setRecentCompanies(companiesData);
+                }
+
+                // 3. Fetch Recent Payments
                 const { data: recentPaymentsData } = await supabase
                     .from('payments')
                     .select(`
@@ -70,7 +80,7 @@ export default function AdminDashboard() {
             )
           `)
                     .order('created_at', { ascending: false })
-                    .limit(10);
+                    .limit(5);
 
                 if (recentPaymentsData) {
                     const formattedPayments: RecentPayment[] = recentPaymentsData.map((p: any) => ({
@@ -107,6 +117,22 @@ export default function AdminDashboard() {
         </Card>
     );
 
+    const getStatusVariant = (status: string) => {
+        switch (status) {
+            case 'approved': return 'completed';
+            case 'pending': return 'pending';
+            default: return 'canceled';
+        }
+    };
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'approved': return 'Aprobado';
+            case 'pending': return 'Pendiente';
+            default: return 'Rechazado';
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -115,8 +141,6 @@ export default function AdminDashboard() {
                     <p className="text-gray-500">Resumen de actividad de la plataforma KAI PRO.</p>
                 </div>
             </div>
-
-
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -142,6 +166,46 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Recent Companies */}
+                <Card className="h-full">
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 className="font-bold text-gray-900">Últimas Empresas</h3>
+                        <Building2 className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-gray-500 bg-gray-50 uppercase text-xs">
+                                <tr>
+                                    <th className="px-4 py-3">Nombre</th>
+                                    <th className="px-4 py-3">Fecha</th>
+                                    <th className="px-4 py-3">Estado Aprobación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={3} className="p-4 text-center text-gray-500">Cargando...</td></tr>
+                                ) : recentCompanies.length === 0 ? (
+                                    <tr><td colSpan={3} className="p-4 text-center text-gray-500">No hay empresas recientes</td></tr>
+                                ) : (
+                                    recentCompanies.map((company) => (
+                                        <tr key={company.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                                            <td className="px-4 py-3 font-medium text-gray-900 truncate max-w-[150px]">{company.name}</td>
+                                            <td className="px-4 py-3 text-gray-400 text-xs">
+                                                {new Date(company.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge variant={getStatusVariant(company.approval_status)}>
+                                                    {getStatusLabel(company.approval_status)}
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+
                 {/* Recent Payments */}
                 <div className="lg:col-span-2">
                     <Card className="h-full">
@@ -187,8 +251,10 @@ export default function AdminDashboard() {
                         </div>
                     </Card>
                 </div>
+            </div>
 
-                {/* Quick Actions or Secondary Panel */}
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div>
                     <Card className="h-full p-6 bg-gradient-to-br from-blue-900 to-slate-900 text-white">
                         <h3 className="text-lg font-bold mb-4">Acciones Rápidas</h3>

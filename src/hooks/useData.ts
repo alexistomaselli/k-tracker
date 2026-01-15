@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { useEffect, useState, useCallback } from 'react'
 import { getSupabase, SUPABASE_CONFIGURED } from '../lib/supabase'
-import { Project, Minute, Task, Participant, Area, Company, ProjectRoutine, MinuteRoutine } from '../data/mockData'
+import { Project, Minute, Task, Participant, Area, Company, ProjectRoutine, MinuteRoutine, UserTour } from '../data/mockData'
 import { useCurrentUser as useUserContext } from '../context/UserContext'
 
 export function useProjects() {
@@ -805,7 +805,12 @@ export function useAreaActions() {
 
     if (!companyId) throw new Error('No company found for user')
 
-    const { data, error } = await supabase!.from('area').insert({ name, color, company_id: companyId }).select().single()
+    const { data, error } = await supabase!.from('area').insert({
+      name,
+      color,
+      company_id: companyId
+    }).select().single()
+
     if (error) throw error
     return data
   }
@@ -819,7 +824,7 @@ export function useAreaActions() {
   }
 
   async function deleteArea(id: string) {
-    if (!SUPABASE_CONFIGURED) return null
+    if (!SUPABASE_CONFIGURED) return
     const supabase = getSupabase()
     const { error } = await supabase!.from('area').delete().eq('id', id)
     if (error) throw error
@@ -865,6 +870,75 @@ export function useAreaActions() {
 
   return { createArea, updateArea, deleteArea, createDefaultAreas }
 }
+
+export function useTour(tourKey: string) {
+  const [hasSeen, setHasSeen] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(true)
+
+  const checkStatus = useCallback(async () => {
+    if (!SUPABASE_CONFIGURED) {
+      // Fallback to localStorage if no DB
+      const stored = localStorage.getItem(`tour_${tourKey}`)
+      setHasSeen(!!stored)
+      setLoading(false)
+      return
+    }
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase!.auth.getUser()
+
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase!
+      .from('user_tours')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tour_key', tourKey)
+      .maybeSingle()
+
+    if (!error && data) {
+      setHasSeen(true)
+    } else {
+      setHasSeen(false)
+    }
+    setLoading(false)
+  }, [tourKey])
+
+  useEffect(() => {
+    checkStatus()
+  }, [checkStatus])
+
+  async function markCompleted(skipped = false) {
+    if (!SUPABASE_CONFIGURED) {
+      localStorage.setItem(`tour_${tourKey}`, 'true')
+      setHasSeen(true)
+      return
+    }
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase!.auth.getUser()
+
+    if (!user) return
+
+    // Optimistic update
+    setHasSeen(true)
+
+    const { error } = await supabase!.from('user_tours').insert({
+      user_id: user.id,
+      tour_key: tourKey,
+      skipped
+    })
+
+    if (error) {
+      console.error('Error marking tour as completed:', error)
+    }
+  }
+
+  return { hasSeen, loading, markCompleted }
+}
+
+
 
 export function useProjectRoutines() {
   const getRoutinesByProject = async (projectId: string) => {
@@ -1232,7 +1306,8 @@ export function useDashboardStats() {
     myTasks: [] as Task[],
     myPendingTasksCount: 0,
     urgentTasks: [] as Task[],
-    totalMinutesCount: 0
+    totalMinutesCount: 0,
+    myProjects: [] as Project[]
   })
   const [loading, setLoading] = useState(true)
   const { user, participant } = useUserContext()
@@ -1256,7 +1331,8 @@ export function useDashboardStats() {
         pendingTasksRes,
         overdueTasksRes,
         urgentTasksRes,
-        myTasksRes
+        myTasksRes,
+        myProjectsRes
       ] = await Promise.all([
         supabase!.from('project').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase!.from('minutes').select('*, project:project_id(name)').order('meeting_date', { ascending: false }).limit(5),
@@ -1264,11 +1340,15 @@ export function useDashboardStats() {
         supabase!.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['pending', 'in_progress']),
         supabase!.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['pending', 'in_progress']).lt('due_date', today),
         supabase!.from('tasks').select('*, project:project_id(name)').in('status', ['pending', 'in_progress']).order('due_date', { ascending: true }).limit(5),
-        participant ? supabase!.from('tasks').select('*, project:project_id(name)').eq('assignee_id', participant.id).order('due_date', { ascending: true }) : Promise.resolve({ data: [], error: null })
+        participant ? supabase!.from('tasks').select('*, project:project_id(name)').eq('assignee_id', participant.id).order('due_date', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+        participant ? supabase!.from('project_participants').select('project(*)').eq('participant_id', participant.id) : Promise.resolve({ data: [], error: null })
       ])
 
       const myTasks = (myTasksRes.data as any[]) || []
       const myPendingTasksCount = myTasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length
+
+      // Extract projects from project_participants result
+      const myProjects = (myProjectsRes.data as any[])?.map(item => item.project).filter(Boolean) || []
 
       setStats({
         activeProjects: projectsRes.count || 0,
@@ -1278,7 +1358,8 @@ export function useDashboardStats() {
         overdueTasksCount: overdueTasksRes.count || 0,
         urgentTasks: (urgentTasksRes.data as any[]) || [],
         myTasks,
-        myPendingTasksCount
+        myPendingTasksCount,
+        myProjects
       })
     } catch (e) {
       console.error('Error loading dashboard stats', e)
